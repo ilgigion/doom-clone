@@ -9,7 +9,7 @@ link_directories(${SDL2_PATH}/lib)
 
 include_directories(include)
 add_executable(DoomClone src/main.cpp)
-target_link_libraries(DoomClone SDL2main SDL2)
+target_link_libraries(DoomClone mingw32 SDL2main SDL2)
 
 add_custom_command(TARGET DoomClone POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
