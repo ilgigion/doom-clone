@@ -7,6 +7,7 @@ Player::Player(float startX, float startY) : Entity(startX, startY) {
     speed = 0.08f;
     rotSpeed = 0.04f;
     dir = 0.0f;
+    fov = 60.0f * (3.14159f / 180.0f);
     active = true;
 }
 
@@ -46,4 +47,12 @@ void Player::handleInput(const uint8_t* keyState) {
     if (keyState[SDL_SCANCODE_S]) {
         x -= std::cos(dir) * speed;
     }
+}
+
+float Player::getFov() const {
+    return fov;
+}
+
+float Player::getDir() const {
+    return dir;
 }

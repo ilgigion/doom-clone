@@ -9,6 +9,7 @@ class Player : public Entity {
 private:
     float speed;
     float rotSpeed;
+    float fov;
 
 public:
     Player(float startX, float startY);
@@ -20,6 +21,10 @@ public:
     void render(class Renderer& renderer) override;
     // keyboard input
     void handleInput(const uint8_t* keyState);
+
+    // field of view
+    float getFov() const;
+    float getDir() const;
 };
 
 #endif
