@@ -11,7 +11,7 @@ Game::~Game() {
 
 void Game::init() {
     map = new Map();
-    player = new Player(1.5f, 1.5f);
+    player = new Player(2.5f, 2.5f);
     isRunning = true;
 }
 
@@ -40,6 +40,8 @@ void Game::update() {
 
 void Game::render() {
     renderer.clear();
-    // empty yet
+
+    renderer.render3D(*player, *map);
+    
     renderer.present();
 }
