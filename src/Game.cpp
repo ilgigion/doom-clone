@@ -34,7 +34,6 @@ void Game::update() {
     }
 
     if (player != nullptr && map != nullptr) {
-        player->handleInput(SDL_GetKeyboardState(NULL));
         player->update(0.016f, *map);
     }
 }

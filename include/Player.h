@@ -7,17 +7,9 @@
 
 class Player : public Entity {
 private:
-    float velocity;
-    float maxSpeed;
-    float acceleration;
-    float deceleration;
+    float speed;
     float rotSpeed;
     float fov;
-
-    bool moveForward;
-    bool moveBackward;
-    bool turnLeft;
-    bool turnRight;
 
 public:
     Player(float startX, float startY);
