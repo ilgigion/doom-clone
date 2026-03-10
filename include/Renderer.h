@@ -19,7 +19,6 @@ public:
     void present();
     bool isRunning() const;
     
-    // for 3d rendering in future
     void drawWall(int x, int height, int textureId); 
     
     void render3D(const Player& player, const Map& map);
