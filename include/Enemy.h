@@ -16,7 +16,7 @@ class Enemy : public Entity
 {
 public:
     EnemyType type;
-    float speed;
+    float velocity;
     float radius;
 
     Enemy(float startX, float startY, EnemyType enemyType);
