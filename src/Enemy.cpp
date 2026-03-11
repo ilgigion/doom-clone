@@ -56,6 +56,4 @@ void Enemy::update(const Player& player, const Map& map, float deltaTime)
     }
 }
 
-void Enemy::render(Renderer& renderer)
-{
-}
+void Enemy::render(Renderer& renderer){}
