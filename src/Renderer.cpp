@@ -316,13 +316,15 @@ void Renderer::renderGun() {
 
 void Renderer::drawEnemy2D(float x, float y, int tileSize)
 {
-    int size = 12;
+    int size = 32;
 
     int screenX = static_cast<int>(x * tileSize) - size / 2;
     int screenY = static_cast<int>(y * tileSize) - size / 2;
 
-    SDL_Rect rect = { screenX, screenY, size, size };
+    SDL_Rect dstRect = { screenX, screenY, size, size };
 
-    SDL_SetRenderDrawColor(sdlRenderer, 255, 0, 0, 255);
-    SDL_RenderFillRect(sdlRenderer, &rect);
+    if (enemyTexture != nullptr)
+    {
+        SDL_RenderCopy(sdlRenderer, enemyTexture, nullptr, &dstRect);
+    }
 }
