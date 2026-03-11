@@ -19,10 +19,10 @@ int failTest = 0; //counter for failed
     std::cout << "working " << #name << "... "; \
     try { \
         name(); \
-        std::cout << "all good" << std::endl; \
+        std::cout << "+" << std::endl; \
         passTest++; \
     } catch (const std::exception& ex) { \
-        std::cout << "all bad (" << ex.what() << ")" << std::endl; \
+        std::cout << "ERROR (" << ex.what() << ")" << std::endl; \
         failTest++; \
     } \
 } while(0)
@@ -73,7 +73,7 @@ TEST(testPlayerDirection) {
     ASS_NEAR(player.getFov(), 60.0f * (3.14159f / 180.0f), 0.01f);
 }
 
-//Check of movement when smth inputed
+//Check of movement when no input
 TEST(testPlayerMovement) {
     Player player(1.0f, 1.0f);
     Map map;
@@ -82,7 +82,8 @@ TEST(testPlayerMovement) {
     float oldX = player.getX();
     float oldY = player.getY();
     player.update(0.016f, map);
-    ASS_TRUE(player.getX() != oldX || player.getY() != oldY);
+    ASS_EQ(player.getX(), oldX);
+    ASS_EQ(player.getY(), oldY);
 }
 
 //Check of rolling after update
