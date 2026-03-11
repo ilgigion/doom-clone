@@ -5,6 +5,7 @@
 
 class Map;
 class Player;
+class Renderer;
 
 enum class EnemyType
 {
@@ -22,6 +23,7 @@ public:
     Enemy(float startX, float startY, EnemyType enemyType);
 
     void update(const Player& player, const Map& map, float deltaTime);
+    void render(Renderer& renderer) override;
 };
 
 #endif

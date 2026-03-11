@@ -23,6 +23,7 @@ public:
     void run();
     void update();
     void render();
+    void spawnEnemies();
 };
 
 #endif
