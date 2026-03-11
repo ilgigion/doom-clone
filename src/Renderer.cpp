@@ -37,6 +37,11 @@ Renderer::Renderer(int w, int h, const char* title) {
         std::cout << "Renderer create error: " << SDL_GetError() << std::endl;
         return;
     }
+
+    // bobbing
+    bobPhase = 0.0f;
+    bobAmplitude = 8.0f;
+    bobFrequency = 1.3f;
 }
 
 Renderer::~Renderer() {
@@ -153,6 +158,8 @@ bool Renderer::loadEnemyTexture(const std::string& path) {
     return enemyTexture != nullptr;
 }
 
+
+
 void Renderer::drawVerticalLine(int x, int yStart, int yEnd, int r, int g, int b) {
     if (yStart < 0) yStart = 0;
     if (yEnd >= height) yEnd = height - 1;
@@ -166,23 +173,42 @@ void Renderer::render3D(const Player& player, const Map& map) {
     SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
     SDL_RenderClear(sdlRenderer);
 
+    // calc bobbing     
+    if (player.isMoving()) {
+        bobPhase += player.getVelocity() * bobFrequency; 
+        bobPhase = std::fmod(bobPhase, 2.0f * 3.14159f);
+    } else {
+        float decay = std::exp(-3.0f * 0.016f);
+        bobPhase *= decay;
+        
+        if (std::abs(bobPhase) < 0.05f) {
+            bobPhase = 0.0f;
+        }
+    }
+
+    
+    // bobbing offset
+    float bobOffset = std::sin(bobPhase) * bobAmplitude;
+
+    int halfHeight = height / 2;
+    int bobMargin = (int)bobAmplitude + 5; 
     // rendering roof
     if (ceilingTexture) {
-        SDL_Rect ceilingRect = {0, 0, width, height / 2};
+        SDL_Rect ceilingRect = {0, (int)bobOffset - 30, width, height / 2 + 30};
         SDL_RenderCopy(sdlRenderer, ceilingTexture, nullptr, &ceilingRect);
     } else {
         SDL_SetRenderDrawColor(sdlRenderer, 50, 50, 80, 255);
-        SDL_Rect ceilingRect = {0, 0, width, height / 2};
+        SDL_Rect ceilingRect = {0, (int)bobOffset, width, height / 2};
         SDL_RenderFillRect(sdlRenderer, &ceilingRect);
     }
 
     // rendering floor
     if (floorTexture) {
-        SDL_Rect floorRect = {0, height / 2, width, height / 2};
+        SDL_Rect floorRect = {0, height / 2 + (int)bobOffset, width, height / 2 + 30};
         SDL_RenderCopy(sdlRenderer, floorTexture, nullptr, &floorRect);
     } else {
         SDL_SetRenderDrawColor(sdlRenderer, 100, 100, 100, 255);
-        SDL_Rect floorRect = {0, height / 2, width, height / 2};
+        SDL_Rect floorRect = {0, height / 2 + (int)bobOffset, width, height / 2};
         SDL_RenderFillRect(sdlRenderer, &floorRect);
     }
 
@@ -270,8 +296,8 @@ void Renderer::render3D(const Player& player, const Map& map) {
             currentWallTexture = wallTextures.begin()->second;
         }
 
-        int yStart = (height / 2) - (wallHeight / 2);
-        int yEnd = (height / 2) + (wallHeight / 2);
+        int yStart = (height / 2) - (wallHeight / 2) + (int)bobOffset;
+        int yEnd = (height / 2) + (wallHeight / 2) + (int)bobOffset;
 
         if (currentWallTexture) {
             SDL_Rect srcRect;
@@ -300,6 +326,7 @@ void Renderer::render3D(const Player& player, const Map& map) {
 void Renderer::renderGun() {
     if (!gunTexture) return;
 
+    float gunBob = std::sin(bobPhase) * (bobAmplitude * 0.8f);
     // get size
     int texW, texH;
     SDL_QueryTexture(gunTexture, nullptr, nullptr, &texW, &texH);
@@ -308,8 +335,8 @@ void Renderer::renderGun() {
     int gunWidth = texW;
     int gunHeight = texH;
     int gunX = (width - gunWidth) / 2 + 100;
-    int gunY = height - gunHeight;
+    int gunY = height - texH - (int)gunBob + 30; 
 
     SDL_Rect destRect = {gunX, gunY, gunWidth, gunHeight};
     SDL_RenderCopy(sdlRenderer, gunTexture, nullptr, &destRect);
-}
+}   
