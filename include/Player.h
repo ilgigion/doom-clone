@@ -33,6 +33,7 @@ public:
     // field of view
     float getFov() const;
     float getDir() const;
+
 };
 
 #endif

@@ -60,7 +60,7 @@ void Game::render() {
     renderer.renderGun();
     for (auto& enemy : enemies)
     {
-        renderer.drawEnemy2D(enemy->getX(), enemy->getY(), map->getTileSize());
+        renderer.drawEnemySprite(*enemy, *player);
     }
 
     renderer.present();
