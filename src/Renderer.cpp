@@ -173,18 +173,28 @@ void Renderer::render3D(const Player& player, const Map& map) {
     SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
     SDL_RenderClear(sdlRenderer);
 
+    // calc bobbing     
     if (player.isMoving()) {
         bobPhase += player.getVelocity() * bobFrequency; 
+        bobPhase = std::fmod(bobPhase, 2.0f * 3.14159f);
     } else {
-        bobPhase *= 0.9f; 
-        if (std::abs(bobPhase) < 0.01f) bobPhase = 0.0f;
+        float decay = std::exp(-3.0f * 0.016f);
+        bobPhase *= decay;
+        
+        if (std::abs(bobPhase) < 0.05f) {
+            bobPhase = 0.0f;
+        }
     }
+
+    
     // bobbing offset
     float bobOffset = std::sin(bobPhase) * bobAmplitude;
-    
+
+    int halfHeight = height / 2;
+    int bobMargin = (int)bobAmplitude + 5; 
     // rendering roof
     if (ceilingTexture) {
-        SDL_Rect ceilingRect = {0, (int)bobOffset, width, height / 2};
+        SDL_Rect ceilingRect = {0, (int)bobOffset - 30, width, height / 2 + 30};
         SDL_RenderCopy(sdlRenderer, ceilingTexture, nullptr, &ceilingRect);
     } else {
         SDL_SetRenderDrawColor(sdlRenderer, 50, 50, 80, 255);
@@ -194,7 +204,7 @@ void Renderer::render3D(const Player& player, const Map& map) {
 
     // rendering floor
     if (floorTexture) {
-        SDL_Rect floorRect = {0, height / 2 + (int)bobOffset, width, height / 2};
+        SDL_Rect floorRect = {0, height / 2 + (int)bobOffset, width, height / 2 + 30};
         SDL_RenderCopy(sdlRenderer, floorTexture, nullptr, &floorRect);
     } else {
         SDL_SetRenderDrawColor(sdlRenderer, 100, 100, 100, 255);
@@ -316,7 +326,7 @@ void Renderer::render3D(const Player& player, const Map& map) {
 void Renderer::renderGun() {
     if (!gunTexture) return;
 
-    float gunBob = std::sin(bobPhase) * (bobAmplitude * 0.5f);
+    float gunBob = std::sin(bobPhase) * (bobAmplitude * 0.8f);
     // get size
     int texW, texH;
     SDL_QueryTexture(gunTexture, nullptr, nullptr, &texW, &texH);
@@ -325,7 +335,7 @@ void Renderer::renderGun() {
     int gunWidth = texW;
     int gunHeight = texH;
     int gunX = (width - gunWidth) / 2 + 100;
-    int gunY = height - texH + (int)gunBob; 
+    int gunY = height - texH - (int)gunBob + 30; 
 
     SDL_Rect destRect = {gunX, gunY, gunWidth, gunHeight};
     SDL_RenderCopy(sdlRenderer, gunTexture, nullptr, &destRect);
