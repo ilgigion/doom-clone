@@ -36,6 +36,7 @@ public:
 
     bool isMoving() const;
     float getVelocity() const;
+    
 };
 
 #endif

@@ -3,6 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include "Player.h"
+#include "Enemy.h"
 #include <map>
 #include <string>
 
@@ -41,6 +42,7 @@ public:
     bool loadCeilingTexture(const std::string& path);
     bool loadGunTexture(const std::string& path);
     bool loadEnemyTexture(const std::string& path);
+    void drawEnemySprite(const Enemy& enemy, const Player& player);
     
     void render3D(const Player& player, const Map& map);
     void renderGun();
@@ -48,7 +50,6 @@ public:
     float calculateBobOffset(const Player& player, float deltaTime);
 
     SDL_Renderer* getSDLRenderer();
-    
 };
 
 #endif

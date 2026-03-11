@@ -6,7 +6,7 @@
 Enemy::Enemy(float startX, float startY, EnemyType enemyType)
     : Entity(startX, startY)
 {
-    speed = 2.0f;
+    velocity = 2.0f;
     radius = 0.2f;
     type = enemyType;
 }
@@ -27,8 +27,8 @@ void Enemy::update(const Player& player, const Map& map, float deltaTime)
             dx /= distance;
             dy /= distance;
 
-            float newX = x + dx * speed * deltaTime;
-            float newY = y + dy * speed * deltaTime;
+            float newX = x + dx * velocity * deltaTime;
+            float newY = y + dy * velocity * deltaTime;
 
             if (!map.isWall((int)(newX + dx * radius), (int)y))
                 x = newX;
@@ -44,8 +44,8 @@ void Enemy::update(const Player& player, const Map& map, float deltaTime)
             dx /= distance;
             dy /= distance;
 
-            float newX = x + dx * speed * deltaTime;
-            float newY = y + dy * speed * deltaTime;
+            float newX = x + dx * velocity * deltaTime;
+            float newY = y + dy * velocity * deltaTime;
 
             if (!map.isWall((int)(newX + dx * radius), (int)y))
                 x = newX;
@@ -54,4 +54,8 @@ void Enemy::update(const Player& player, const Map& map, float deltaTime)
                 y = newY;
         }
     }
+}
+
+void Enemy::render(Renderer& renderer)
+{
 }
