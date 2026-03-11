@@ -17,9 +17,9 @@ void Game::init() {
     isRunning = true;
 
 
-    renderer.loadWallTexture(1, "assets/textures/wall.bmp");
-    renderer.loadFloorTexture("assets/textures/floor.bmp");
-    renderer.loadCeilingTexture("assets/textures/roof.bmp");
+    renderer.loadWallTexture(1, "assets/textures/wall0.bmp");
+    renderer.loadFloorTexture("assets/textures/floor0.bmp");
+    renderer.loadCeilingTexture("assets/textures/roof0.bmp");
     renderer.loadGunTexture("assets/textures/gun.bmp");
     renderer.loadEnemyTexture("assets/textures/enemy.bmp");
 }
