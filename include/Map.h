@@ -19,6 +19,7 @@ public:
     int getWidth() const;
     int getHeight() const;
     int getTileSize() const;
+    int getTileType(int x, int y) const;
 };
 
 #endif
