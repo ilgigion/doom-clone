@@ -4,15 +4,18 @@
 Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false) {
 }
 
-Game::~Game() {
-    delete player;
-    delete map;
-}
+Game::~Game() {}
 
 void Game::init() {
-    map = new Map();
-    player = new Player(2.5f, 2.5f);
+    map = std::make_unique<Map>();
+    player = std::make_unique<Player>(1.5f, 1.5f);
     isRunning = true;
+
+    renderer.loadWallTexture(1, "assets/textures/wall.bmp");
+    renderer.loadFloorTexture("assets/textures/floor.bmp");
+    renderer.loadCeilingTexture("assets/textures/roof.bmp");
+    renderer.loadGunTexture("assets/textures/gun.bmp");
+    renderer.loadEnemyTexture("assets/textures/enemy.bmp");
 }
 
 void Game::run() {
@@ -43,6 +46,7 @@ void Game::render() {
     renderer.clear();
 
     renderer.render3D(*player, *map);
+    renderer.renderGun();
     
     renderer.present();
 }
