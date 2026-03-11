@@ -4,8 +4,9 @@
 #include <cassert>
 #include <cmath>
 #include <SDL2/SDL.h>
-#include "../include/Entity.h"
-#include "../include/Player.h"
+#include "Entity.h"
+#include "Player.h"
+#include "Map.h"
 
 int passTest = 0; //counter for passed
 int failTest = 0; //counter for failed
@@ -97,6 +98,41 @@ TEST(testPlayerRotation) {
     ASS_TRUE(true);
 }
 
+
+//********MAP TESTS******
+
+//Creation of map and check of its size
+TEST(testMapCreation) {
+    Map map;
+    ASS_EQ(map.getWidth(), 20);
+    ASS_EQ(map.getHeight(), 20);
+}
+
+//Test that borders of the map are walls
+TEST(testMapWalls) {
+    Map map;
+    ASS_TRUE(map.isWall(0, 0));
+    ASS_TRUE(map.isWall(19, 0));
+    ASS_TRUE(map.isWall(0, 19));
+    ASS_TRUE(map.isWall(19, 19));
+}
+
+//Test that inside of the map is free space
+TEST(testMapEmptySpace) {
+    Map map;
+    ASS_FALSE(map.isWall(1, 1));
+    ASS_FALSE(map.isWall(5, 5));
+}
+
+//Check of the processing of coordinates out from the border
+TEST(testMapOutOfBounds) {
+    Map map;
+    ASS_TRUE(map.isWall(-1, 5));
+    ASS_TRUE(map.isWall(25, 5));
+    ASS_TRUE(map.isWall(5, -1));
+    ASS_TRUE(map.isWall(5, 25));
+}
+
 //*****OUTPUT AND WORK OF THE TESTS******
 int main() {
     //*****OUTPUT FOR UNDERSTANDING*****
@@ -114,7 +150,16 @@ int main() {
     RUN_TEST(testPlayerDirection);
     RUN_TEST(testPlayerMovement);
     RUN_TEST(testPlayerRotation);
-    //check if tests failed
+
+
+    //******TESTS FOR MAP*****
+    RUN_TEST(testMapCreation);
+    RUN_TEST(testMapWalls);
+    RUN_TEST(testMapEmptySpace);
+    RUN_TEST(testMapOutOfBounds);
+
+
+    //******CHECK HOW TESTS WORKED****
     if (failTest > 0) {
         std::cout << "NOT ALL TESTS PASSED!" << std::endl;
         return 1;
