@@ -33,6 +33,9 @@ public:
     // field of view
     float getFov() const;
     float getDir() const;
+
+    bool isMoving() const;
+    float getVelocity() const;
 };
 
 #endif

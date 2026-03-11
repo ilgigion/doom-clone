@@ -22,6 +22,11 @@ private:
     int textureWidth;
     int textureHeight;
 
+    // bobbing parametrs
+    float bobPhase;           
+    float bobAmplitude;       
+    float bobFrequency;  
+
 public:
     Renderer(int w, int h, const char* title);
     ~Renderer();
@@ -40,7 +45,8 @@ public:
     void render3D(const Player& player, const Map& map);
     void renderGun();
     void drawVerticalLine(int x, int yStart, int yEnd, int colorR, int colorG, int colorB);
-    
+    float calculateBobOffset(const Player& player, float deltaTime);
+
     SDL_Renderer* getSDLRenderer();
     
 };

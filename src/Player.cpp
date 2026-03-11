@@ -91,3 +91,12 @@
     float Player::getDir() const {
         return dir;
     }
+
+    bool Player::isMoving() const {
+        return std::abs(velocity) > 0.001f;
+    }
+
+    float Player::getVelocity() const {
+        return velocity;    
+    }
+
