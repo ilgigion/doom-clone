@@ -58,7 +58,11 @@ void Game::render() {
 
     renderer.render3D(*player, *map);
     renderer.renderGun();
-    
+    for (auto& enemy : enemies)
+    {
+        renderer.drawEnemy2D(enemy->getX(), enemy->getY(), map->getTileSize());
+    }
+
     renderer.present();
 }
 
@@ -69,4 +73,5 @@ void Game::spawnEnemies()
     enemies.push_back(std::make_unique<Enemy>(5.5f, 5.5f, EnemyType::Melee));
     enemies.push_back(std::make_unique<Enemy>(8.5f, 3.5f, EnemyType::Melee));
     enemies.push_back(std::make_unique<Enemy>(12.5f, 10.5f, EnemyType::Ranged));
+
 }

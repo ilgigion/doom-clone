@@ -36,6 +36,7 @@ public:
     bool loadCeilingTexture(const std::string& path);
     bool loadGunTexture(const std::string& path);
     bool loadEnemyTexture(const std::string& path);
+    void drawEnemy2D(float x, float y, int tileSize);
     
     void render3D(const Player& player, const Map& map);
     void renderGun();
