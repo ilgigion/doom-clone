@@ -46,6 +46,8 @@ private:
     //*****NEW TEXTURES FOR SHOOTING GUN AND DEAD ENEMY****
     SDL_Texture* gunFireTexture;//firing animation
     SDL_Texture* deadEnemyTexture;//dead enemy sprite
+    void drawDigit(int x, int y, int digit, int colorR, int colorG, int colorB);
+    void drawNumber(int x, int y, int number, int colorR, int colorG, int colorB);
 public:
     Renderer(int w, int h, const char* title);
     ~Renderer();
@@ -75,6 +77,8 @@ public:
 
     void render3D(const Player& player, const Map& map, float deltaTime);
     void renderGun(const Player& player); //added the parameter to make animation
+    void SDL_RenderDrawCircle(SDL_Renderer * sdl_renderer, int cx, int cy, int i);
+
     void renderHUD(const Player& player); //interface as in DOOM
     void drawVerticalLine(int x, int yStart, int yEnd, int colorR, int colorG, int colorB);
     float calculateBobOffset(const Player& player, float deltaTime);

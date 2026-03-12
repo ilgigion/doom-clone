@@ -31,6 +31,8 @@ private:
     float shootAnimTimer;//timer of animation of the shot
     static constexpr float SHOOT_DELAY = 0.4f; //constant for shot delay not to write the num everytime
 
+    //*****KILL COUNT FOR BETTER EXP FOR PLAYER***
+    int killCount;
 public:
     static constexpr int MAX_HP = 100; //const for max player hp
     Player(float startX, float startY);
@@ -60,7 +62,11 @@ public:
     bool isAlive() const; //check if player is alive
     bool isShootingNow() const; //check the condition is shooting or not
     Weapon& getWeapon();
-    
+
+
+    //*******FUNCTIONS FOR KILL COUNT*****
+    int getKillCount() const; //get kill count
+    void incrementKillCount(); //increment on enemy death
 };
 
 #endif
