@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
-Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false) {
+Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false), enemySpawnTimer(0.0f), enemyRespawnCheckTimer(0.0f){
 }
 
 Game::~Game() {}
@@ -13,9 +13,7 @@ Game::~Game() {}
 void Game::init() {
     map = std::make_unique<Map>();
     player = std::make_unique<Player>(1.5f, 1.5f);
-
     spawnEnemies();
-
     isRunning = true;
 
 
@@ -25,6 +23,10 @@ void Game::init() {
     renderer.loadGunTexture("assets/textures/gun.bmp");
     renderer.loadEnemyTexture(EnemyType::Melee, "assets/textures/enemy_melee.bmp");
     renderer.loadEnemyTexture(EnemyType::Ranged, "assets/textures/enemy_range.bmp");
+
+    //*****LOAD FIRE AND DEAD TEXTURE*****
+    renderer.loadGunFireTexture("assets/textures/gun_fire.bmp");
+    renderer.loadDeadEnemyTexture("assets/textures/dead_enemy.bmp");
 }
 
 void Game::run() {
@@ -56,9 +58,45 @@ void Game::update(float deltaTime) {
         player->update(deltaTime, *map);
     }
 
-    for (auto& enemy : enemies)
-    {
-        enemy->update(*player, *map, deltaTime);
+    if (player && map) {
+        player->handleInput(SDL_GetKeyboardState(NULL));
+        // Shoot on SPACE
+        if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_SPACE]) {
+            player->shoot(enemies, *map);
+        }
+        player->update(0.016f, *map);
+        //update players projectiles
+        player->updateProjectiles(0.016f, *map, enemies);
+    }
+
+    //timer for spawning additional enemies
+    enemySpawnTimer += 0.016f;
+    if (enemySpawnTimer >= SPAWN_INTERVAL) {
+        enemySpawnTimer = 0.0f;
+        spawnAdditionalEnemy();
+    }
+
+    //timer for checking respawns
+    enemyRespawnCheckTimer += 0.016f;
+    if (enemyRespawnCheckTimer >= RESPAWN_CHECK_INTERVAL) {
+        enemyRespawnCheckTimer = 0.0f;
+        checkRespawns();
+    }
+
+    //update enemies
+    for (auto& enemy : enemies) {
+        if (enemy && enemy->isAlive()) {
+            enemy->update(*player, *map, 0.016f);
+        } else if (enemy) {
+            //dead enemies update respawn timer
+            enemy->updateDeathTimer(0.016f);
+        }
+    }
+
+    //check if player is dead
+    if (player && !player->isAlive()) {
+        std::cout << "GAME OVER\n";
+        isRunning = false;
     }
 }
 
@@ -66,28 +104,40 @@ void Game::render(float deltaTime) {
     renderer.clear();
 
     renderer.render3D(*player, *map, deltaTime);
-    
+
     renderer.resetSpriteZBuffer();
-    
+
     // sort enemies
     std::vector<Enemy*> sortedEnemies;
     for (auto& enemy : enemies) {
-        sortedEnemies.push_back(enemy.get());
+        if (enemy) {
+            sortedEnemies.push_back(enemy.get());
+        }
     }
-    
-    std::sort(sortedEnemies.begin(), sortedEnemies.end(), 
+
+    std::sort(sortedEnemies.begin(), sortedEnemies.end(),
         [this](Enemy* a, Enemy* b) {
             float distA = std::hypot(a->getX() - player->getX(), a->getY() - player->getY());
             float distB = std::hypot(b->getX() - player->getX(), b->getY() - player->getY());
             return distA > distB;
         });
-    
+
     // drawing in order
     for (auto* enemy : sortedEnemies) {
-        renderer.drawEnemySprite(*enemy, *player);
+        if (enemy->isAlive()) {
+            renderer.drawEnemySprite(*enemy, *player);
+            renderer.drawEnemyHPBar(enemy->getX(), enemy->getY(),
+                                  enemy->getHP(), Enemy::MAX_HP, *player, {255, 50, 50, 255});
+        } else {
+            // dead enemies
+            if (enemy->getDeathTimer() > 0.0f) {
+                renderer.drawDeadEnemySprite(*enemy, *player);
+            }
+        }
     }
 
-    renderer.renderGun();
+    renderer.renderGun(*player);
+    renderer.renderHUD(*player);
     renderer.present();
 }
 
@@ -99,4 +149,37 @@ void Game::spawnEnemies()
     enemies.push_back(std::make_unique<Enemy>(8.5f, 3.5f, EnemyType::Melee));
     enemies.push_back(std::make_unique<Enemy>(12.5f, 10.5f, EnemyType::Ranged));
 
+}
+
+//*****SPAWN ENEMIES AFTER 30 SECONDS****
+void Game::spawnAdditionalEnemy() {
+    if (static_cast<int>(enemies.size()) >= MAX_ENEMIES) {
+        std::cout << "Max enemies reached (" << MAX_ENEMIES << ")\n";
+        return;
+    }
+
+    //random position on map
+    float spawnX, spawnY;
+    int attempts = 0;
+    do {
+        spawnX = 2.0f + static_cast<float>(rand()) / RAND_MAX * (map->getWidth() - 4.0f);
+        spawnY = 2.0f + static_cast<float>(rand()) / RAND_MAX * (map->getHeight() - 4.0f);
+        attempts++;
+    } while (map->isWall(static_cast<int>(spawnX), static_cast<int>(spawnY)) && attempts < 10);
+
+    //random type of enemy
+    EnemyType type = (rand() % 2 == 0) ? EnemyType::Melee : EnemyType::Ranged;
+
+    enemies.push_back(std::make_unique<Enemy>(spawnX, spawnY, type));
+    std::cout << "Additional enemy spawned! Total: " << enemies.size() << "\n";
+}
+
+//check and perform respawns of killed enemies
+void Game::checkRespawns() {
+    for (auto& enemy : enemies) {
+        if (enemy && enemy->shouldRespawn()) {
+            enemy->respawn();
+            std::cout << "Enemy respawned at (" << enemy->getX() << ", " << enemy->getY() << ")\n";
+        }
+    }
 }

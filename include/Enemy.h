@@ -39,12 +39,12 @@ public:
     static constexpr float RANGED_ATTACK_RANGE = 5.0f; //range of attack of range enemy
     static constexpr float ATTACK_COOLDOWN_MILI = 1.5f; //delay mili
     static constexpr float ATTACK_COOLDOWN_RANGE = 2.0f; //delay range
-    static constexpr float DEATH_TIMEOUT = 5.0f; //time before corpse disappears
+    static constexpr float DEATH_TIMEOUT = 1.0f; //time before corpse disappears
     static constexpr float RESPAWN_DELAY = 20.0f; //time before respawn
 
     Enemy(float startX, float startY, EnemyType enemyType);
 
-    void update(const Player& player, const Map& map, float deltaTime);
+    void update(Player& player, const Map& map, float deltaTime);
 
     void render(Renderer& renderer) override;
 
@@ -64,6 +64,7 @@ public:
     void respawn();
     bool shouldRemove() const;
     EnemyType getType() const;
+    float getDeathTimer() const { return deathTimer; }
 
     //Check if player or enemy is visible for attack(no wall)
     bool hasLineOfSight(const Player& player, const Map& map) const;
