@@ -707,3 +707,4 @@ void Renderer::renderHUD(const Player& player) {
 float Renderer::calculateBobOffset(const Player& player, float deltaTime) {
     return std::sin(bobPhase) * bobAmplitude;
 }
+//check commit
