@@ -24,6 +24,8 @@ set(SOURCES
     src/Player.cpp
         include/Enemy.h
         src/Enemy.cpp
+        src/Projectile.cpp
+        src/Weapon.cpp
 )
 
 add_executable(DoomClone ${SOURCES})
