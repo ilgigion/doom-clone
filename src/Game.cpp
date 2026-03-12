@@ -28,13 +28,19 @@ void Game::init() {
 }
 
 void Game::run() {
+    Uint64 lastTime = SDL_GetTicks64();
+
     while (isRunning) {
-        update();
-        render();
+        Uint64 currentTime = SDL_GetTicks64();
+        float deltaTime = (currentTime - lastTime) / 1000.0f;
+        lastTime = currentTime;
+        if (deltaTime > 0.1f) deltaTime = 0.1f;
+        update(deltaTime);
+        render(deltaTime);
     }
 }
 
-void Game::update() {
+void Game::update(float deltaTime) {
     SDL_Event e;
     while (SDL_PollEvent(&e) != 0) {
         if (e.type == SDL_QUIT) {
@@ -47,19 +53,19 @@ void Game::update() {
 
     if (player != nullptr && map != nullptr) {
         player->handleInput(SDL_GetKeyboardState(NULL));
-        player->update(0.016f, *map);
+        player->update(deltaTime, *map);
     }
 
     for (auto& enemy : enemies)
     {
-        enemy->update(*player, *map, 0.016f);
+        enemy->update(*player, *map, deltaTime);
     }
 }
 
-void Game::render() {
+void Game::render(float deltaTime) {
     renderer.clear();
 
-    renderer.render3D(*player, *map);
+    renderer.render3D(*player, *map, deltaTime);
     
     renderer.resetSpriteZBuffer();
     
@@ -76,7 +82,7 @@ void Game::render() {
             return distA > distB;
         });
     
-    // Отрисовка в правильном порядке
+    // drawing in order
     for (auto* enemy : sortedEnemies) {
         renderer.drawEnemySprite(*enemy, *player);
     }

@@ -58,7 +58,7 @@ public:
     bool loadEnemyTexture(const std::string& path);
     void drawEnemySprite(const Enemy& enemy, const Player& player);
     
-    void render3D(const Player& player, const Map& map);
+    void render3D(const Player& player, const Map& map, float deltaTime);
     void renderGun();
     void drawVerticalLine(int x, int yStart, int yEnd, int colorR, int colorG, int colorB);
     float calculateBobOffset(const Player& player, float deltaTime);

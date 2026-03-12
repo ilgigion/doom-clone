@@ -49,7 +49,7 @@
         } 
         else if (moveBackward) {
             velocity -= acceleration;
-            if (velocity < -maxSpeed * 0.5f) velocity = -maxSpeed * 0.5f; // Назад медленнее
+            if (velocity < -maxSpeed * 0.5f) velocity = -maxSpeed * 0.5f;
         } 
         else {
             // braking if no keys is pressed
