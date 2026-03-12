@@ -11,7 +11,8 @@
         acceleration = 0.005f;
         deceleration = 0.005f;
         rotSpeed = 0.04f;
-        
+        radius = 0.25f;
+
         dir = 0.0f;
         fov = 60.0f * (3.14159f / 180.0f);
         active = true;
@@ -32,9 +33,6 @@
         turnRight = keyState[SDL_SCANCODE_D];
     }
 
-
-    
-
     void Player::update(float deltaTime, const Map& map) {
         // 1. rotation
         if (turnLeft) {
@@ -51,7 +49,7 @@
         } 
         else if (moveBackward) {
             velocity -= acceleration;
-            if (velocity < -maxSpeed * 0.5f) velocity = -maxSpeed * 0.5f; // Назад медленнее
+            if (velocity < -maxSpeed * 0.5f) velocity = -maxSpeed * 0.5f;
         } 
         else {
             // braking if no keys is pressed
@@ -70,11 +68,18 @@
             float newX = x + std::cos(dir) * moveStep;
             float newY = y + std::sin(dir) * moveStep;
             
-            // collision
-            if (!map.isWall((int)newX, (int)y)) {
+            // collision regards with dirsction of movement
+            float checkDir = (velocity > 0) ? dir : dir + M_PI;
+            
+            float checkX = newX + std::cos(checkDir) * radius;
+            float checkY = newY + std::sin(checkDir) * radius;
+            
+            // collision by x
+            if (!map.isWall((int)checkX, (int)y)) {
                 x = newX;
             }
-            if (!map.isWall((int)x, (int)newY)) {
+            // collision by y
+            if (!map.isWall((int)x, (int)checkY)) {
                 y = newY;
             }
         }

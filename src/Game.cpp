@@ -1,6 +1,8 @@
 #include "Game.h"
 #include <iostream>
 #include <memory>
+#include <algorithm>
+#include <cmath>
 
 Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false) {
 }
@@ -21,17 +23,24 @@ void Game::init() {
     renderer.loadFloorTexture("assets/textures/floor0.bmp");
     renderer.loadCeilingTexture("assets/textures/roof0.bmp");
     renderer.loadGunTexture("assets/textures/gun.bmp");
-    renderer.loadEnemyTexture("assets/textures/enemy.bmp");
+    renderer.loadEnemyTexture(EnemyType::Melee, "assets/textures/enemy_melee.bmp");
+    renderer.loadEnemyTexture(EnemyType::Ranged, "assets/textures/enemy_range.bmp");
 }
 
 void Game::run() {
+    Uint64 lastTime = SDL_GetTicks64();
+
     while (isRunning) {
-        update();
-        render();
+        Uint64 currentTime = SDL_GetTicks64();
+        float deltaTime = (currentTime - lastTime) / 1000.0f;
+        lastTime = currentTime;
+        if (deltaTime > 0.1f) deltaTime = 0.1f;
+        update(deltaTime);
+        render(deltaTime);
     }
 }
 
-void Game::update() {
+void Game::update(float deltaTime) {
     SDL_Event e;
     while (SDL_PollEvent(&e) != 0) {
         if (e.type == SDL_QUIT) {
@@ -44,25 +53,41 @@ void Game::update() {
 
     if (player != nullptr && map != nullptr) {
         player->handleInput(SDL_GetKeyboardState(NULL));
-        player->update(0.016f, *map);
+        player->update(deltaTime, *map);
     }
 
     for (auto& enemy : enemies)
     {
-        enemy->update(*player, *map, 0.016f);
+        enemy->update(*player, *map, deltaTime);
     }
 }
 
-void Game::render() {
+void Game::render(float deltaTime) {
     renderer.clear();
 
-    renderer.render3D(*player, *map);
-    renderer.renderGun();
-    for (auto& enemy : enemies)
-    {
+    renderer.render3D(*player, *map, deltaTime);
+    
+    renderer.resetSpriteZBuffer();
+    
+    // sort enemies
+    std::vector<Enemy*> sortedEnemies;
+    for (auto& enemy : enemies) {
+        sortedEnemies.push_back(enemy.get());
+    }
+    
+    std::sort(sortedEnemies.begin(), sortedEnemies.end(), 
+        [this](Enemy* a, Enemy* b) {
+            float distA = std::hypot(a->getX() - player->getX(), a->getY() - player->getY());
+            float distB = std::hypot(b->getX() - player->getX(), b->getY() - player->getY());
+            return distA > distB;
+        });
+    
+    // drawing in order
+    for (auto* enemy : sortedEnemies) {
         renderer.drawEnemySprite(*enemy, *player);
     }
 
+    renderer.renderGun();
     renderer.present();
 }
 
