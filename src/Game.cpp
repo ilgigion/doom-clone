@@ -21,7 +21,8 @@ void Game::init() {
     renderer.loadFloorTexture("assets/textures/floor0.bmp");
     renderer.loadCeilingTexture("assets/textures/roof0.bmp");
     renderer.loadGunTexture("assets/textures/gun.bmp");
-    renderer.loadEnemyTexture("assets/textures/enemy.bmp");
+    renderer.loadEnemyTexture(EnemyType::Melee, "assets/textures/enemy_melee.bmp");
+    renderer.loadEnemyTexture(EnemyType::Ranged, "assets/textures/enemy_range.bmp");
 }
 
 void Game::run() {
