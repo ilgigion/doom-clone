@@ -26,8 +26,21 @@ set(SOURCES
         src/Enemy.cpp
         src/Projectile.cpp
         src/Weapon.cpp
+        tests/Tests.cpp
 )
 
+#*****TESTS*****
+add_executable(DoomClone_tests
+        tests/Tests.cpp
+        src/Entity.cpp
+        src/Player.cpp
+        src/Map.cpp
+        src/Enemy.cpp
+        src/Projectile.cpp
+        src/Weapon.cpp
+)
+
+target_link_libraries(DoomClone_tests mingw32 SDL2main SDL2)
 add_executable(DoomClone ${SOURCES})
 
 target_link_libraries(DoomClone mingw32 SDL2main SDL2)
