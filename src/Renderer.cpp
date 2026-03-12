@@ -354,39 +354,46 @@ void Renderer::drawEnemySprite(const Enemy& enemy, const Player& player)
     float dy = enemy.getY() - player.getY();
     float distance = std::sqrt(dx * dx + dy * dy);
     
-    if (distance < 0.1f || distance > 20.0f) return;
+    // if (distance < 0.3f || distance > 25.0f) return;
 
     // angle to enemy
     float angleToEnemy = std::atan2(dy, dx);
     float relativeAngle = angleToEnemy - player.getDir();
-    // relativeAngle = std::fmod(relativeAngle, 2.0f *  M_PI);
-    while (relativeAngle > M_PI) relativeAngle -= 2.0f * M_PI;
-    while (relativeAngle < -M_PI) relativeAngle += 2.0f * M_PI;
+    while (relativeAngle > M_PI) {relativeAngle -= 2.0f * M_PI;}
+    while (relativeAngle < -M_PI) {relativeAngle += 2.0f * M_PI;}
 
-    // is enemy is fov
+    // is enemy in fov
     float fov = player.getFov();
     if (std::abs(relativeAngle) > fov / 2.0f) return;
+    
+    // size of sprite
+    float spriteScale = 0.8f;
+    int spriteSize = static_cast<int>((height / distance) * spriteScale);
+    
+    if (spriteSize < 20) spriteSize = 20;
+    if (spriteSize > 500) spriteSize = 500;
 
     // calc position
     int screenX = static_cast<int>((relativeAngle + fov / 2.0f) / fov * width);
     
-    // size of sprite
-    int spriteSize = static_cast<int>(64.0f / distance * height / 2.0f);
-    if (spriteSize < 16) spriteSize = 16;
-    if (spriteSize > 400) spriteSize = 400;
-
     // bobbing offset
     int bobOffset = static_cast<int>(std::sin(bobPhase) * bobAmplitude);
+    
+    // position
     int spriteX = screenX - spriteSize / 2;
     int spriteY = height / 2 - spriteSize / 2 + bobOffset;
 
     // rendering
     for (int stripe = spriteX; stripe < spriteX + spriteSize; stripe++) {
         if (stripe < 0 || stripe >= width) continue;
+        
         if (zBuffer[stripe] < distance) {
             continue;
         }
-        int texX = static_cast<int>((stripe - spriteX) * textureWidth / spriteSize);
+
+        float texCoord = static_cast<float>(stripe - spriteX) / static_cast<float>(spriteSize);
+        int texX = static_cast<int>(texCoord * textureWidth);
+        
         if (texX < 0) texX = 0;
         if (texX >= textureWidth) texX = textureWidth - 1;
 
