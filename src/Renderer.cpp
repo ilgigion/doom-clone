@@ -152,7 +152,7 @@ bool Renderer::loadEnemyTexture(const std::string& path) {
         std::cout << "Unable to load enemy texture: " << path << std::endl;
         return false;
     }
-    
+
     enemyTexture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
     SDL_FreeSurface(surface);
     return enemyTexture != nullptr;
@@ -339,4 +339,46 @@ void Renderer::renderGun() {
 
     SDL_Rect destRect = {gunX, gunY, gunWidth, gunHeight};
     SDL_RenderCopy(sdlRenderer, gunTexture, nullptr, &destRect);
-}   
+
+}
+
+void Renderer::drawEnemySprite(const Enemy& enemy, const Player& player)
+{
+    int screenWidth, screenHeight;
+    SDL_GetRendererOutputSize(sdlRenderer, &screenWidth, &screenHeight);
+
+    float dx = enemy.getX() - player.getX();
+    float dy = enemy.getY() - player.getY();
+
+    float distance = std::sqrt(dx * dx + dy * dy);
+    if (distance < 0.1f) return;
+
+    float angleToEnemy = std::atan2(dy, dx);
+    float relativeAngle = angleToEnemy - player.getDir();
+
+    while (relativeAngle > M_PI) relativeAngle -= 2.0f * M_PI;
+    while (relativeAngle < -M_PI) relativeAngle += 2.0f * M_PI;
+
+    float fov = M_PI / 3.0f;
+
+    if (std::abs(relativeAngle) > fov / 2.0f)
+        return;
+
+    float screenX = (relativeAngle + fov / 2.0f) / fov * screenWidth;
+
+    int spriteSize = static_cast<int>(600 / distance);
+
+    if (spriteSize < 16) spriteSize = 16;
+    if (spriteSize > 300) spriteSize = 300;
+
+    SDL_Rect dstRect;
+    dstRect.w = spriteSize;
+    dstRect.h = spriteSize;
+    dstRect.x = static_cast<int>(screenX - spriteSize / 2);
+    dstRect.y = screenHeight / 2 - spriteSize / 2;
+
+    if (enemyTexture != nullptr)
+    {
+        SDL_RenderCopy(sdlRenderer, enemyTexture, nullptr, &dstRect);
+    }
+}
