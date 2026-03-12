@@ -6,23 +6,25 @@
 enum class MenuResult
 {
     None,
-    StartGame,
-    Quit
+    StartGame
 };
 
 class Menu
 {
 private:
-    int selectedItem;
+    SDL_Texture* backgroundTexture;
+    SDL_Texture* startTexture;
 
 public:
     Menu();
+    ~Menu();
 
+    bool loadTextures(SDL_Renderer* renderer);
     void handleEvent(const SDL_Event& e);
     void render(SDL_Renderer* renderer);
-
     void reset();
     MenuResult activateSelected() const;
+    bool isStartClicked(int mouseX, int mouseY) const;
 };
 
 #endif

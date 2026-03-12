@@ -26,6 +26,7 @@ void Game::init() {
     renderer.loadGunTexture("assets/textures/gun.bmp");
     renderer.loadEnemyTexture(EnemyType::Melee, "assets/textures/enemy_melee.bmp");
     renderer.loadEnemyTexture(EnemyType::Ranged, "assets/textures/enemy_range.bmp");
+    menu.loadTextures(renderer.getSDLRenderer());
 }
 
 void Game::run() {
@@ -49,19 +50,23 @@ void Game::update(float deltaTime) {
         }
 
         if (state == GameState::Menu) {
-            menu.handleEvent(e);
-
-            if (e.type == SDL_KEYDOWN &&
-                (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER)) {
-                MenuResult result = menu.activateSelected();
-
-                if (result == MenuResult::StartGame) {
+            if (e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
                     state = GameState::Playing;
                 }
-                else if (result == MenuResult::Quit) {
+                else if (e.key.keysym.sym == SDLK_ESCAPE) {
                     isRunning = false;
                 }
+            }
+
+            if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+                int mouseX = e.button.x;
+                int mouseY = e.button.y;
+
+                if (menu.isStartClicked(mouseX, mouseY)) {
+                    state = GameState::Playing;
                 }
+            }
         }
         else if (state == GameState::Playing) {
             if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
@@ -89,8 +94,6 @@ void Game::render(float deltaTime) {
     }
     else if (state == GameState::Playing) {
         renderer.render3D(*player, *map, deltaTime);
-
-        renderer.resetSpriteZBuffer();
 
         std::vector<Enemy*> sortedEnemies;
         for (auto& enemy : enemies) {
