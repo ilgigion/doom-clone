@@ -40,6 +40,8 @@ private:
 
     // buffer for containing dist to the walls
     std::vector<float> zBuffer;
+    // buffer for containing dist to the enemy
+    std::vector<float> spriteZBuffer;
 public:
     Renderer(int w, int h, const char* title);
     ~Renderer();
@@ -63,6 +65,7 @@ public:
 
     bool loadEnemyTexture(EnemyType type, const std::string& path);
     const TextureInfo* getEnemyTextureInfo(EnemyType type) const;
+    void resetSpriteZBuffer();
 
     SDL_Renderer* getSDLRenderer();
 };

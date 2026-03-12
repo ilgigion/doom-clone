@@ -43,6 +43,7 @@ Renderer::Renderer(int w, int h, const char* title) {
     bobFrequency = 1.3f;
     
     zBuffer.resize(width, 9999.0f);
+    spriteZBuffer.resize(width, 9999.0f); 
 }
 
 Renderer::~Renderer() {
@@ -182,7 +183,7 @@ bool Renderer::loadEnemyTexture(EnemyType type, const std::string& path) {
         return false;
     }
 
-    // Сохраняем текстуру и её размеры в карту
+    // save texture size
     enemyTextures[type] = TextureInfo(texture, texW, texH);
     
     std::cout << "Loaded enemy texture: " << path << " (" << texW << "x" << texH << ")" << std::endl;
@@ -195,6 +196,10 @@ const TextureInfo* Renderer::getEnemyTextureInfo(EnemyType type) const {
         return &it->second;
     }
     return nullptr;
+}
+
+void Renderer::resetSpriteZBuffer() {
+    std::fill(spriteZBuffer.begin(), spriteZBuffer.end(), 9999.0f);
 }
 
 void Renderer::drawVerticalLine(int x, int yStart, int yEnd, int r, int g, int b) {
@@ -380,9 +385,7 @@ void Renderer::renderGun() {
 
 }
 
-void Renderer::drawEnemySprite(const Enemy& enemy, const Player& player)
-{
-    // Получаем информацию о текстуре
+void Renderer::drawEnemySprite(const Enemy& enemy, const Player& player) {
     const TextureInfo* texInfo = getEnemyTextureInfo(enemy.getType());
     if (!texInfo || !texInfo->texture) return;
 
@@ -428,11 +431,16 @@ void Renderer::drawEnemySprite(const Enemy& enemy, const Player& player)
     for (int stripe = spriteX; stripe < spriteX + spriteWidth; stripe++) {
         if (stripe < 0 || stripe >= width) continue;
         
+        // the wall?
         if (zBuffer[stripe] < distance) {
             continue;
         }
+        // the other enemy?
+        if (spriteZBuffer[stripe] < distance) {
+            continue;
+        }
 
-        // Координата в исходной текстуре (с учетом реального размера)
+        // coords in original texture
         float texCoord = static_cast<float>(stripe - spriteX) / static_cast<float>(spriteWidth);
         int texX = static_cast<int>(texCoord * texInfo->width);
         
@@ -443,5 +451,8 @@ void Renderer::drawEnemySprite(const Enemy& enemy, const Player& player)
         SDL_Rect dstRect = {stripe, spriteY, 1, spriteHeight};
         
         SDL_RenderCopy(sdlRenderer, texInfo->texture, &srcRect, &dstRect);
+        
+        // update sprite buffer
+        spriteZBuffer[stripe] = distance;
     }
 }

@@ -1,6 +1,8 @@
 #include "Game.h"
 #include <iostream>
 #include <memory>
+#include <algorithm>
+#include <cmath>
 
 Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false) {
 }
@@ -58,12 +60,28 @@ void Game::render() {
     renderer.clear();
 
     renderer.render3D(*player, *map);
-    renderer.renderGun();
-    for (auto& enemy : enemies)
-    {
+    
+    renderer.resetSpriteZBuffer();
+    
+    // sort enemies
+    std::vector<Enemy*> sortedEnemies;
+    for (auto& enemy : enemies) {
+        sortedEnemies.push_back(enemy.get());
+    }
+    
+    std::sort(sortedEnemies.begin(), sortedEnemies.end(), 
+        [this](Enemy* a, Enemy* b) {
+            float distA = std::hypot(a->getX() - player->getX(), a->getY() - player->getY());
+            float distB = std::hypot(b->getX() - player->getX(), b->getY() - player->getY());
+            return distA > distB;
+        });
+    
+    // Отрисовка в правильном порядке
+    for (auto* enemy : sortedEnemies) {
         renderer.drawEnemySprite(*enemy, *player);
     }
 
+    renderer.renderGun();
     renderer.present();
 }
 
