@@ -24,6 +24,8 @@ public:
 
     void update(const Player& player, const Map& map, float deltaTime);
     void render(Renderer& renderer) override;
+
+    EnemyType getType() const;
 };
 
 #endif

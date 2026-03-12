@@ -6,6 +6,16 @@
 #include "Enemy.h"
 #include <map>
 #include <string>
+#include <unordered_map>
+
+struct TextureInfo {
+    SDL_Texture* texture;
+    int width;
+    int height;
+    
+    TextureInfo() : texture(nullptr), width(0), height(0) {}
+    TextureInfo(SDL_Texture* tex, int w, int h) : texture(tex), width(w), height(h) {}
+};
 
 class Renderer {
 private:
@@ -18,7 +28,7 @@ private:
     SDL_Texture* floorTexture;
     SDL_Texture* ceilingTexture;
     SDL_Texture* gunTexture;                  
-    SDL_Texture* enemyTexture;
+    std::unordered_map<EnemyType, TextureInfo> enemyTextures;
     
     int textureWidth;
     int textureHeight;
@@ -50,6 +60,9 @@ public:
     void renderGun();
     void drawVerticalLine(int x, int yStart, int yEnd, int colorR, int colorG, int colorB);
     float calculateBobOffset(const Player& player, float deltaTime);
+
+    bool loadEnemyTexture(EnemyType type, const std::string& path);
+    const TextureInfo* getEnemyTextureInfo(EnemyType type) const;
 
     SDL_Renderer* getSDLRenderer();
 };
