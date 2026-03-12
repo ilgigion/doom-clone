@@ -42,6 +42,8 @@ Renderer::Renderer(int w, int h, const char* title) {
     bobPhase = 0.0f;
     bobAmplitude = 8.0f;
     bobFrequency = 1.3f;
+    
+    zBuffer.resize(width, 9999.0f);
 }
 
 Renderer::~Renderer() {
@@ -176,7 +178,7 @@ void Renderer::render3D(const Player& player, const Map& map) {
     // calc bobbing     
     if (player.isMoving()) {
         bobPhase += player.getVelocity() * bobFrequency; 
-        bobPhase = std::fmod(bobPhase, 2.0f * 3.14159f);
+        bobPhase = std::fmod(bobPhase, 2.0f * M_PI);
     } else {
         float decay = std::exp(-3.0f * 0.016f);
         bobPhase *= decay;
@@ -265,7 +267,8 @@ void Renderer::render3D(const Player& player, const Map& map) {
         }
 
         float correctedDistance = distanceToWall * cos(currentAngle - player.getDir());
-
+        zBuffer[i] = correctedDistance;
+        
         int wallHeight = (int)(height / correctedDistance);
 
         // calc of coords of the wall
@@ -344,41 +347,52 @@ void Renderer::renderGun() {
 
 void Renderer::drawEnemySprite(const Enemy& enemy, const Player& player)
 {
-    int screenWidth, screenHeight;
-    SDL_GetRendererOutputSize(sdlRenderer, &screenWidth, &screenHeight);
+    if (!enemyTexture) return;
 
+    // calc vector to the enemy
     float dx = enemy.getX() - player.getX();
     float dy = enemy.getY() - player.getY();
-
     float distance = std::sqrt(dx * dx + dy * dy);
-    if (distance < 0.1f) return;
+    
+    if (distance < 0.1f || distance > 20.0f) return;
 
+    // angle to enemy
     float angleToEnemy = std::atan2(dy, dx);
     float relativeAngle = angleToEnemy - player.getDir();
-
+    // relativeAngle = std::fmod(relativeAngle, 2.0f *  M_PI);
     while (relativeAngle > M_PI) relativeAngle -= 2.0f * M_PI;
     while (relativeAngle < -M_PI) relativeAngle += 2.0f * M_PI;
 
-    float fov = M_PI / 3.0f;
+    // is enemy is fov
+    float fov = player.getFov();
+    if (std::abs(relativeAngle) > fov / 2.0f) return;
 
-    if (std::abs(relativeAngle) > fov / 2.0f)
-        return;
-
-    float screenX = (relativeAngle + fov / 2.0f) / fov * screenWidth;
-
-    int spriteSize = static_cast<int>(600 / distance);
-
+    // calc position
+    int screenX = static_cast<int>((relativeAngle + fov / 2.0f) / fov * width);
+    
+    // size of sprite
+    int spriteSize = static_cast<int>(64.0f / distance * height / 2.0f);
     if (spriteSize < 16) spriteSize = 16;
-    if (spriteSize > 300) spriteSize = 300;
+    if (spriteSize > 400) spriteSize = 400;
 
-    SDL_Rect dstRect;
-    dstRect.w = spriteSize;
-    dstRect.h = spriteSize;
-    dstRect.x = static_cast<int>(screenX - spriteSize / 2);
-    dstRect.y = screenHeight / 2 - spriteSize / 2;
+    // bobbing offset
+    int bobOffset = static_cast<int>(std::sin(bobPhase) * bobAmplitude);
+    int spriteX = screenX - spriteSize / 2;
+    int spriteY = height / 2 - spriteSize / 2 + bobOffset;
 
-    if (enemyTexture != nullptr)
-    {
-        SDL_RenderCopy(sdlRenderer, enemyTexture, nullptr, &dstRect);
+    // rendering
+    for (int stripe = spriteX; stripe < spriteX + spriteSize; stripe++) {
+        if (stripe < 0 || stripe >= width) continue;
+        if (zBuffer[stripe] < distance) {
+            continue;
+        }
+        int texX = static_cast<int>((stripe - spriteX) * textureWidth / spriteSize);
+        if (texX < 0) texX = 0;
+        if (texX >= textureWidth) texX = textureWidth - 1;
+
+        SDL_Rect srcRect = {texX, 0, 1, textureHeight};
+        SDL_Rect dstRect = {stripe, spriteY, 1, spriteSize};
+        
+        SDL_RenderCopy(sdlRenderer, enemyTexture, &srcRect, &dstRect);
     }
 }

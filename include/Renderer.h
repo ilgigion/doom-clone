@@ -28,6 +28,8 @@ private:
     float bobAmplitude;       
     float bobFrequency;  
 
+    // buffer for containing dist to the walls
+    std::vector<float> zBuffer;
 public:
     Renderer(int w, int h, const char* title);
     ~Renderer();
