@@ -708,3 +708,8 @@ float Renderer::calculateBobOffset(const Player& player, float deltaTime) {
     return std::sin(bobPhase) * bobAmplitude;
 }
 //check commit
+
+
+
+
+//nature is good
