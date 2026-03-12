@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
-Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false) {
+Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false),  state(GameState::Menu) {
 }
 
 Game::~Game() {}
@@ -17,7 +17,8 @@ void Game::init() {
     spawnEnemies();
 
     isRunning = true;
-
+    state = GameState::Menu;
+    menu.reset();
 
     renderer.loadWallTexture(1, "assets/textures/wall0.bmp");
     renderer.loadFloorTexture("assets/textures/floor0.bmp");
@@ -46,48 +47,70 @@ void Game::update(float deltaTime) {
         if (e.type == SDL_QUIT) {
             isRunning = false;
         }
-        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-            isRunning = false;
+
+        if (state == GameState::Menu) {
+            menu.handleEvent(e);
+
+            if (e.type == SDL_KEYDOWN &&
+                (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER)) {
+                MenuResult result = menu.activateSelected();
+
+                if (result == MenuResult::StartGame) {
+                    state = GameState::Playing;
+                }
+                else if (result == MenuResult::Quit) {
+                    isRunning = false;
+                }
+                }
+        }
+        else if (state == GameState::Playing) {
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+                state = GameState::Menu;
+                menu.reset();
+            }
         }
     }
 
-    if (player != nullptr && map != nullptr) {
+    if (state == GameState::Playing && player != nullptr && map != nullptr) {
         player->handleInput(SDL_GetKeyboardState(NULL));
         player->update(deltaTime, *map);
-    }
 
-    for (auto& enemy : enemies)
-    {
-        enemy->update(*player, *map, deltaTime);
+        for (auto& enemy : enemies) {
+            enemy->update(*player, *map, deltaTime);
+        }
     }
 }
 
 void Game::render(float deltaTime) {
     renderer.clear();
 
-    renderer.render3D(*player, *map, deltaTime);
-    
-    renderer.resetSpriteZBuffer();
-    
-    // sort enemies
-    std::vector<Enemy*> sortedEnemies;
-    for (auto& enemy : enemies) {
-        sortedEnemies.push_back(enemy.get());
+    if (state == GameState::Menu) {
+        menu.render(renderer.getSDLRenderer());
     }
-    
-    std::sort(sortedEnemies.begin(), sortedEnemies.end(), 
-        [this](Enemy* a, Enemy* b) {
-            float distA = std::hypot(a->getX() - player->getX(), a->getY() - player->getY());
-            float distB = std::hypot(b->getX() - player->getX(), b->getY() - player->getY());
-            return distA > distB;
-        });
-    
-    // drawing in order
-    for (auto* enemy : sortedEnemies) {
-        renderer.drawEnemySprite(*enemy, *player);
+    else if (state == GameState::Playing) {
+        renderer.render3D(*player, *map, deltaTime);
+
+        renderer.resetSpriteZBuffer();
+
+        std::vector<Enemy*> sortedEnemies;
+        for (auto& enemy : enemies) {
+            sortedEnemies.push_back(enemy.get());
+        }
+
+        std::sort(sortedEnemies.begin(), sortedEnemies.end(),
+            [this](Enemy* a, Enemy* b) {
+                float distA = std::hypot(a->getX() - player->getX(), a->getY() - player->getY());
+                float distB = std::hypot(b->getX() - player->getX(), b->getY() - player->getY());
+                return distA > distB;
+            });
+
+        for (auto* enemy : sortedEnemies) {
+            renderer.drawEnemySprite(*enemy, *player);
+        }
+
+        renderer.renderGun();
     }
 
-    renderer.renderGun();
     renderer.present();
 }
 
