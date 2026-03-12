@@ -21,8 +21,8 @@ public:
 
     void init();
     void run();
-    void update();
-    void render();
+    void update(float deltaTime);
+    void render(float deltaTime);
     void spawnEnemies();
 };
 

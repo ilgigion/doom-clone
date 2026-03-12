@@ -162,12 +162,12 @@ bool Renderer::loadEnemyTexture(EnemyType type, const std::string& path) {
         return false;
     }
 
-    // Устанавливаем прозрачность (белый цвет как прозрачный)
+    // set black as backgroud for textures
     SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
 
     SDL_Texture* texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
     
-    // Получаем реальный размер текстуры
+    // get original size of texture
     int texW = 0, texH = 0;
     if (SDL_QueryTexture(texture, nullptr, nullptr, &texW, &texH) != 0) {
         std::cout << "Unable to query texture size: " << SDL_GetError() << std::endl;
@@ -210,7 +210,7 @@ void Renderer::drawVerticalLine(int x, int yStart, int yEnd, int r, int g, int b
     SDL_RenderDrawLine(sdlRenderer, x, yStart, x, yEnd);
 }
 
-void Renderer::render3D(const Player& player, const Map& map) {
+void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
     // clean up
     SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
     SDL_RenderClear(sdlRenderer);
@@ -220,7 +220,7 @@ void Renderer::render3D(const Player& player, const Map& map) {
         bobPhase += player.getVelocity() * bobFrequency; 
         bobPhase = std::fmod(bobPhase, 2.0f * M_PI);
     } else {
-        float decay = std::exp(-3.0f * 0.016f);
+        float decay = std::exp(-3.0f * deltaTime);
         bobPhase *= decay;
         
         if (std::abs(bobPhase) < 0.05f) {
