@@ -13,6 +13,7 @@ private:
     float deceleration;
     float rotSpeed;
     float fov;
+    float radius;
 
     bool moveForward;
     bool moveBackward;
