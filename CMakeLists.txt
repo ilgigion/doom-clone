@@ -10,7 +10,7 @@ include_directories("${SDL2_PATH}/include")
 include_directories("${SDL2_MIXER_PATH}/include")
 include_directories("include")
 
-# Явно указываем пути к библиотекам
+# path to lib
 link_directories("${SDL2_PATH}/lib")
 link_directories("${SDL2_MIXER_PATH}/lib")
 
@@ -42,13 +42,12 @@ set(HEADERS
 
 add_executable(DoomClone ${SOURCES} ${HEADERS})
 
-# === ВАЖНО: Порядок библиотек имеет значение! ===
-# SDL2_mixer должен идти ПОСЛЕ SDL2
+
 target_link_libraries(DoomClone 
     mingw32 
     SDL2main 
     SDL2 
-    SDL2_mixer  # <-- После SDL2
+    SDL2_mixer
 )
 
 add_executable(DoomClone_tests
