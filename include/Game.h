@@ -8,6 +8,7 @@
 #include "Menu.h"
 #include <memory>
 #include <vector>
+#include <SDL2/SDL_mixer.h>
 
 enum class GameState
 {
@@ -32,7 +33,10 @@ private:
     static constexpr float SPAWN_INTERVAL = 30.0f;    // const for spawning new enemies
     static constexpr float RESPAWN_CHECK_INTERVAL = 1.0f; // check respawn every sec
     static constexpr int MAX_ENEMIES = 10;            // max amount of enemies
-
+    
+    //*******MUSIC*****
+    Mix_Music* backgroundMusic;
+    bool musicEnabled;
 public:
     Game();
     ~Game();
@@ -44,6 +48,13 @@ public:
     void spawnEnemies();
     void spawnAdditionalEnemy();  // spawn of new enemy
     void checkRespawns();         // check and make of respawn
+
+    //*****MUSIC CONTROLING******
+    void initMusic();
+    void loadMusic(const std::string& path);
+    void playMusic(bool loop = true);
+    void setMusicVolume(int volume);    
+    void cleanupMusic();
 };
 
 #endif

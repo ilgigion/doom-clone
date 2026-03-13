@@ -1,14 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 project(DoomClone)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 set(SDL2_PATH "C:/dev/SDL2/x86_64-w64-mingw32")
+set(SDL2_MIXER_PATH "C:/dev/SDL2_mixer/x86_64-w64-mingw32")
 
-include_directories(${SDL2_PATH}/include)
-include_directories(include)
+include_directories("${SDL2_PATH}/include")
+include_directories("${SDL2_MIXER_PATH}/include")
+include_directories("include")
 
-link_directories(${SDL2_PATH}/lib)
+# Явно указываем пути к библиотекам
+link_directories("${SDL2_PATH}/lib")
+link_directories("${SDL2_MIXER_PATH}/lib")
 
 set(SOURCES
         src/main.cpp
@@ -36,7 +40,15 @@ set(HEADERS
 )
 
 add_executable(DoomClone ${SOURCES} ${HEADERS})
-target_link_libraries(DoomClone mingw32 SDL2main SDL2)
+
+# === ВАЖНО: Порядок библиотек имеет значение! ===
+# SDL2_mixer должен идти ПОСЛЕ SDL2
+target_link_libraries(DoomClone 
+    mingw32 
+    SDL2main 
+    SDL2 
+    SDL2_mixer  # <-- После SDL2
+)
 
 add_executable(DoomClone_tests
         tests/Tests.cpp
@@ -47,16 +59,18 @@ add_executable(DoomClone_tests
         src/Projectile.cpp
         src/Weapon.cpp
 )
-target_link_libraries(DoomClone_tests mingw32 SDL2main SDL2)
-
-add_custom_command(TARGET DoomClone POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${SDL2_PATH}/bin/SDL2.dll"
-        $<TARGET_FILE_DIR:DoomClone>/SDL2.dll
+target_link_libraries(DoomClone_tests 
+    mingw32 
+    SDL2main 
+    SDL2 
+    SDL2_mixer
 )
 
-add_custom_command(TARGET DoomClone_tests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+add_custom_command(TARGET DoomClone POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${SDL2_PATH}/bin/SDL2.dll"
-        $<TARGET_FILE_DIR:DoomClone_tests>/SDL2.dll
+        $<TARGET_FILE_DIR:DoomClone>/SDL2.dll
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${SDL2_MIXER_PATH}/bin/SDL2_mixer.dll"
+        $<TARGET_FILE_DIR:DoomClone>/SDL2_mixer.dll
 )
