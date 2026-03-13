@@ -58,6 +58,8 @@ add_executable(DoomClone_tests
         src/Enemy.cpp
         src/Projectile.cpp
         src/Weapon.cpp
+        src/Renderer.cpp
+        src/Game.cpp
 )
 target_link_libraries(DoomClone_tests 
     mingw32 
