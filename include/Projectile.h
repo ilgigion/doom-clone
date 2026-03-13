@@ -34,6 +34,9 @@ public:
     
     //calculate damage based on dist
     int getActualDamage() const;
+
+    //for tests
+    void setTraveledDist(float dist);
 };
 
 #endif

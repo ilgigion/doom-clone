@@ -8,6 +8,7 @@
 #include "Player.h"
 #include "Map.h"
 #include "Enemy.h"
+#include "Projectile.h"
 
 int passTest = 0; //counter for passed
 int failTest = 0; //counter for failed
@@ -281,6 +282,55 @@ TEST(testEnemyRangedAttackOutOfRange) {
     ASS_EQ(player.getHP(), startHP);
 }
 
+//*******PROJECTILE TESTS*****
+//Check projectile creation
+TEST(testProjectileCreation) {
+    Projectile proj(0.0f, 0.0f, 0.0f, 50, 10.0f, 2.0f);
+    ASS_NEAR(proj.getX(), 0.0f, 0.001f);
+    ASS_NEAR(proj.getY(), 0.0f, 0.001f);
+    ASS_TRUE(proj.isActive());
+    ASS_EQ(proj.getActualDamage(), 50);
+}
+
+//Check projectile movement
+TEST(testProjectileMovement) {
+    Map map;
+    Projectile proj(2.5f, 2.5f, 0.0f, 50, 20.0f, 2.0f);
+    float oldX = proj.getX();
+    proj.update(0.016f, map);
+
+    ASS_TRUE(proj.getX() > oldX);
+    ASS_TRUE(proj.isActive());
+}
+
+//Check projectile going through wall
+TEST(testProjectileWallCollision) {
+    Map map;
+    Projectile proj(5.9f, 2.5f, 0.0f, 50, 20.0f, 2.0f);
+    proj.update(1.0f, map);
+    ASS_FALSE(proj.isActive());
+}
+
+//Check projectile damage fall of
+TEST(testProjectileDamageFalloff) {
+    Projectile proj(0.0f, 0.0f, 0.0f, 100, 10.0f, 2.0f);
+    ASS_EQ(proj.getActualDamage(), 100);
+    proj.setTraveledDist(5.0f);
+    ASS_TRUE(proj.getActualDamage() < 100 && proj.getActualDamage() > 30);
+    proj.setTraveledDist(15.0f);
+    ASS_EQ(proj.getActualDamage(), 0);
+}
+
+//Check projectile hit enemy
+TEST(testProjectileEnemyHit) {
+    Enemy enemy(5.0f, 0.0f, EnemyType::Melee);
+    Projectile proj(0.0f, 0.0f, 0.0f, 50, 20.0f, 2.0f);
+    ASS_FALSE(proj.checkEnemyHit(enemy));
+    Projectile proj2(4.9f, 0.0f, 0.0f, 50, 20.0f, 2.0f);
+    ASS_TRUE(proj2.checkEnemyHit(enemy));
+    ASS_EQ(enemy.getHP(), Enemy::MAX_HP - 50);
+}
+
 //*****OUTPUT AND WORK OF THE TESTS******
 int main() {
     //*****OUTPUT FOR UNDERSTANDING*****
@@ -319,6 +369,15 @@ int main() {
     RUN_TEST(testEnemyRangedAttack);
     RUN_TEST(testEnemyRangedAttackBlockedByWall);
     RUN_TEST(testEnemyRangedAttackOutOfRange);
+
+
+    //********TESTS FOR PROJECTILE*****
+    RUN_TEST(testProjectileCreation);
+    RUN_TEST(testProjectileMovement);
+    RUN_TEST(testProjectileWallCollision);
+    RUN_TEST(testProjectileDamageFalloff);
+    RUN_TEST(testProjectileEnemyHit);
+
 
     //******CHECK HOW TESTS WORKED****
     if (failTest > 0) {
