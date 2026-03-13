@@ -166,6 +166,11 @@ void Game::render(float deltaTime) {
         }
 
         renderer.renderGun(*player);
+        if (player->getDamageTimer() > 0.0f) {
+            // alpha: from 0.2 to 0.0 as it fades
+            float flashAlpha = 0.2f * (player->getDamageTimer() / Player::DAMAGE_FLASH_DURATION);
+            renderer.renderDamageOverlay(flashAlpha);
+        }
         renderer.renderHUD(*player);
     }
 
@@ -176,9 +181,9 @@ void Game::spawnEnemies()
 {
     enemies.clear();
 
-    enemies.push_back(std::make_unique<Enemy>(5.5f, 5.5f, EnemyType::Melee));
-    enemies.push_back(std::make_unique<Enemy>(8.5f, 3.5f, EnemyType::Melee));
-    enemies.push_back(std::make_unique<Enemy>(12.5f, 10.5f, EnemyType::Ranged));
+    enemies.push_back(std::make_unique<Enemy>(5.0f, 5.0f, EnemyType::Melee));
+    enemies.push_back(std::make_unique<Enemy>(8.0f, 3.0f, EnemyType::Melee));
+    enemies.push_back(std::make_unique<Enemy>(13.0f, 10.0f, EnemyType::Ranged));
 
 }
 

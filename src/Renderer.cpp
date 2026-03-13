@@ -707,6 +707,27 @@ void Renderer::renderHUD(const Player& player) {
 float Renderer::calculateBobOffset(const Player& player, float deltaTime) {
     return std::sin(bobPhase) * bobAmplitude;
 }
+
+void Renderer::renderDamageOverlay(float alpha) {
+    if (!sdlRenderer) return;
+    alpha = 0.2;
+    Uint8 alphaValue = static_cast<Uint8>(alpha * 255.0f);
+    // switch on blendering colors
+    SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND); 
+    // save current render color
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(sdlRenderer, &r, &g, &b, &a);
+    // put red with alpha
+    SDL_SetRenderDrawColor(sdlRenderer, 255, 0, 0, alphaValue);
+    // draw red
+    SDL_Rect overlay = {0, 0, width, height};
+    SDL_RenderFillRect(sdlRenderer, &overlay);
+    
+    // recover original color
+    SDL_SetRenderDrawColor(sdlRenderer, r, g, b, a);
+    // switch off blendering colors
+    SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_NONE);
+}
 //check commit
 
 
