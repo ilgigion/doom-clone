@@ -331,6 +331,41 @@ TEST(testProjectileEnemyHit) {
     ASS_EQ(enemy.getHP(), Enemy::MAX_HP - 50);
 }
 
+
+//*******WEAPON TESTS****
+//Check creation
+TEST(testWeaponCreation) {
+    Weapon weapon;
+    ASS_EQ(weapon.MAX_AMMO, -1);
+}
+
+//Check amount of shots
+TEST(testWeaponShootCount) {
+    Map map;
+    Weapon weapon;
+    auto projectiles = weapon.shoot(2.5f, 2.5f, 0.0f, map);
+    ASS_TRUE(projectiles.size() > 0);
+}
+
+//Check angle of shot
+TEST(testWeaponSpreadAngle) {
+    Map map;
+    Weapon weapon;
+    auto projectiles = weapon.shoot(0.0f, 0.0f, 0.0f, map);
+    for (const auto& p : projectiles) {
+        ASS_TRUE(p->getX() >= 0.0f);
+    }
+}
+
+//Check damage parameters
+TEST(testWeaponDamageParams) {
+    Weapon weapon;
+    Projectile proj(0.0f, 0.0f, 0.0f, 35, 4.0f, 1.0f);
+    ASS_EQ(proj.getActualDamage(), 35);
+    proj.setTraveledDist(2.5f);
+    ASS_TRUE(proj.getActualDamage() < 35);
+}
+
 //*****OUTPUT AND WORK OF THE TESTS******
 int main() {
     //*****OUTPUT FOR UNDERSTANDING*****
@@ -378,6 +413,12 @@ int main() {
     RUN_TEST(testProjectileDamageFalloff);
     RUN_TEST(testProjectileEnemyHit);
 
+
+    //********TESTS FOR WEAPON*****
+    RUN_TEST(testWeaponCreation);
+    RUN_TEST(testWeaponShootCount);
+    RUN_TEST(testWeaponSpreadAngle);
+    RUN_TEST(testWeaponDamageParams);
 
     //******CHECK HOW TESTS WORKED****
     if (failTest > 0) {
