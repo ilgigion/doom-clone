@@ -115,8 +115,7 @@ void Enemy::update(Player& player, const Map& map, float deltaTime)
     float dy = player.getY() - y;
     float distance = std::sqrt(dx * dx + dy * dy);
 
-    if (distance <= 0.001f)
-        return;
+    if (distance <= 0.001f) return;
 
 
 

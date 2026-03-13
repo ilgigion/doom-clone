@@ -33,13 +33,17 @@ private:
 
     //*****KILL COUNT FOR BETTER EXP FOR PLAYER***
     int killCount;
+
+    // get damage effect
+    float damageTimer;
 public:
     static constexpr int MAX_HP = 100; //const for max player hp
+    static constexpr float DAMAGE_FLASH_DURATION = 0.3f;
     Player(float startX, float startY);
     ~Player();
 
     // in future: moving player
-    void update(float deltaTime, const Map& map); 
+    void update(float deltaTime, const Map& map);
     // renderring
     void render(class Renderer& renderer) override;
     // keyboard input
@@ -67,6 +71,12 @@ public:
     //*******FUNCTIONS FOR KILL COUNT*****
     int getKillCount() const; //get kill count
     void incrementKillCount(); //increment on enemy death
+
+    // timer for damage effect
+    float getDamageTimer() const;
+    constexpr float getMaxSpeed() const { return maxSpeed; }
+    constexpr float getRadius() const { return radius; }
+    constexpr float getFOV() const { return fov; }
 };
 
 #endif

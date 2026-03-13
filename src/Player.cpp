@@ -24,6 +24,9 @@ Player::Player(float startX, float startY) : Entity(startX, startY), hp(MAX_HP),
     moveBackward = false;
     turnLeft = false;
     turnRight = false;
+
+    // damage effect
+    damageTimer = 0.0f;
 }
 
 Player::~Player() {}
@@ -38,6 +41,7 @@ void Player::handleInput(const uint8_t* keyState) {
 //get damage
 void Player::takeDamage(int amount) {
     hp = std::max(0, hp - amount); //lower hp but not less than 0
+    damageTimer = DAMAGE_FLASH_DURATION;
 }
 
 
@@ -168,6 +172,11 @@ void Player::update(float deltaTime, const Map& map) {
             y = newY;
         }
     }
+
+    if (damageTimer > 0.0f) {
+        damageTimer -= deltaTime;
+        if (damageTimer < 0.0f) damageTimer = 0.0f;
+    }
 }
 
 void Player::render(Renderer& renderer) {
@@ -205,4 +214,8 @@ int Player::getKillCount() const {
 
 void Player::incrementKillCount() {
     killCount++;
+}
+
+float Player::getDamageTimer() const {
+    return damageTimer;
 }

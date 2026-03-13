@@ -5,6 +5,8 @@
 #include <SDL2/SDL.h>
 #include <cmath>
 #include <iostream>
+#include  <Game.h>
+#include <optional>
 
 //made to draw numbers on the screen for kill count without libs
 void Renderer::drawDigit(int x, int y, int digit, int r, int g, int b) {
@@ -150,35 +152,29 @@ SDL_Renderer* Renderer::getSDLRenderer() {
     return sdlRenderer;
 }
 
-bool Renderer::loadWallTexture(int id, const std::string& path) {
+std::optional<bool> Renderer::loadWallTexture(int id, const std::string& path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     if (surface == nullptr) {
-        std::cout << "Unable to load wall texture: " << path << " Error: " << SDL_GetError() << std::endl;
-        return false;
+        throw ResourceLoadException("Wall texture: " + path + " - " + SDL_GetError());
     }
 
-    // set black as empty
     SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
-
     SDL_Texture* texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
     SDL_FreeSurface(surface);
 
     if (texture == nullptr) {
-        std::cout << "Unable to create texture from surface: " << SDL_GetError() << std::endl;
-        return false;
+        throw ResourceLoadException("Failed to create wall texture: " + path);
     }
 
     wallTextures[id] = texture;
 
-    // size of first texture
     if (wallTextures.size() == 1) {
         SDL_QueryTexture(texture, nullptr, nullptr, &textureWidth, &textureHeight);
     }
-
     return true;
 }
 
-bool Renderer::loadFloorTexture(const std::string& path) {
+std::optional<bool> Renderer::loadFloorTexture(const std::string &path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     if (surface == nullptr) {
         std::cout << "Unable to load floor texture: " << path << std::endl;
@@ -190,7 +186,7 @@ bool Renderer::loadFloorTexture(const std::string& path) {
     return floorTexture != nullptr;
 }
 
-bool Renderer::loadCeilingTexture(const std::string& path) {
+std::optional<bool> Renderer::loadCeilingTexture(const std::string &path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
     if (surface == nullptr) {
@@ -203,7 +199,7 @@ bool Renderer::loadCeilingTexture(const std::string& path) {
     return ceilingTexture != nullptr;
 }
 
-bool Renderer::loadGunTexture(const std::string& path) {
+std::optional<bool> Renderer::loadGunTexture(const std::string &path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
     if (surface == nullptr) {
@@ -242,7 +238,7 @@ bool Renderer::loadDeadEnemyTexture(const std::string& path) {
     return deadEnemyTexture != nullptr;
 }
 
-bool Renderer::loadEnemyTexture(EnemyType type, const std::string& path) {
+std::optional<bool> Renderer::loadEnemyTexture(EnemyType type, const std::string &path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     if (surface == nullptr) {
         std::cout << "Unable to load enemy texture: " << path << " Error: " << SDL_GetError() << std::endl;
@@ -706,6 +702,27 @@ void Renderer::renderHUD(const Player& player) {
 
 float Renderer::calculateBobOffset(const Player& player, float deltaTime) {
     return std::sin(bobPhase) * bobAmplitude;
+}
+
+void Renderer::renderDamageOverlay(float alpha) {
+    if (!sdlRenderer) return;
+    alpha = 0.2;
+    Uint8 alphaValue = static_cast<Uint8>(alpha * 255.0f);
+    // switch on blendering colors
+    SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND);
+    // save current render color
+    Uint8 r, g, b, a;
+    SDL_GetRenderDrawColor(sdlRenderer, &r, &g, &b, &a);
+    // put red with alpha
+    SDL_SetRenderDrawColor(sdlRenderer, 255, 0, 0, alphaValue);
+    // draw red
+    SDL_Rect overlay = {0, 0, width, height};
+    SDL_RenderFillRect(sdlRenderer, &overlay);
+
+    // recover original color
+    SDL_SetRenderDrawColor(sdlRenderer, r, g, b, a);
+    // switch off blendering colors
+    SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_NONE);
 }
 //check commit
 

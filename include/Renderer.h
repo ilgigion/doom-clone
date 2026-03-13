@@ -7,12 +7,13 @@
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <optional>
 
 struct TextureInfo {
     SDL_Texture* texture;
     int width;
     int height;
-    
+
     TextureInfo() : texture(nullptr), width(0), height(0) {}
     TextureInfo(SDL_Texture* tex, int w, int h) : texture(tex), width(w), height(h) {}
 };
@@ -27,16 +28,16 @@ private:
     std::map<int, SDL_Texture*> wallTextures;
     SDL_Texture* floorTexture;
     SDL_Texture* ceilingTexture;
-    SDL_Texture* gunTexture;                  
+    SDL_Texture* gunTexture;
     std::unordered_map<EnemyType, TextureInfo> enemyTextures;
-    
+
     int textureWidth;
     int textureHeight;
 
     // bobbing parametrs
-    float bobPhase;           
-    float bobAmplitude;       
-    float bobFrequency;  
+    float bobPhase;
+    float bobAmplitude;
+    float bobFrequency;
 
     // buffer for containing dist to the walls
     std::vector<float> zBuffer;
@@ -55,13 +56,13 @@ public:
     void clear();
     void present();
     bool isRunning() const;
-    
-    // instead drawWall
-    bool loadWallTexture(int id, const std::string& path);
-    bool loadFloorTexture(const std::string& path);
-    bool loadCeilingTexture(const std::string& path);
-    bool loadGunTexture(const std::string& path);
-    bool loadEnemyTexture(const std::string& path);
+
+    //changed to optional
+    std::optional<bool> loadWallTexture(int id, const std::string& path);
+    std::optional<bool> loadFloorTexture(const std::string& path);
+    std::optional<bool> loadCeilingTexture(const std::string& path);
+    std::optional<bool> loadGunTexture(const std::string& path);
+    std::optional<bool> loadEnemyTexture(EnemyType type, const std::string& path);
 
 
     void drawEnemySprite(const Enemy& enemy, const Player& player);
@@ -83,9 +84,10 @@ public:
     void drawVerticalLine(int x, int yStart, int yEnd, int colorR, int colorG, int colorB);
     float calculateBobOffset(const Player& player, float deltaTime);
 
-    bool loadEnemyTexture(EnemyType type, const std::string& path);
     const TextureInfo* getEnemyTextureInfo(EnemyType type) const;
     void resetSpriteZBuffer();
+
+    void renderDamageOverlay(float alpha); // get damage effect
 
     SDL_Renderer* getSDLRenderer();
 };
