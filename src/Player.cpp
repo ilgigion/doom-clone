@@ -122,7 +122,6 @@ void Player::update(float deltaTime, const Map& map) {
         if (shootCooldown < 0.0f) shootCooldown = 0.0f;
     }
 
-
     // 1. rotation
     if (turnLeft) {
         dir -= rotSpeed;
@@ -135,21 +134,11 @@ void Player::update(float deltaTime, const Map& map) {
     if (moveForward) {
         velocity += acceleration;
         if (velocity > maxSpeed) velocity = maxSpeed;
-    }
+    } 
     else if (moveBackward) {
         velocity -= acceleration;
         if (velocity < -maxSpeed * 0.5f) velocity = -maxSpeed * 0.5f;
-    }
-    else {
-        // braking if no keys is pressed
-        if (velocity > 0) {
-            velocity -= deceleration;
-            if (velocity < 0) velocity = 0;
-        } else if (velocity < 0) {
-            velocity += deceleration;
-            if (velocity > 0) velocity = 0;
-        }
-    }
+    } 
     else {
         // braking if no keys is pressed
         if (velocity > 0) {
@@ -167,13 +156,7 @@ void Player::update(float deltaTime, const Map& map) {
         float newX = x + std::cos(dir) * moveStep;
         float newY = y + std::sin(dir) * moveStep;
 
-    // 3. moving player in dependence on velocity
-    if (velocity != 0) {
-        float moveStep = velocity;
-        float newX = x + std::cos(dir) * moveStep;
-        float newY = y + std::sin(dir) * moveStep;
-
-        // collision regards with dirsction of movement
+        // collision regards with direction of movement
         float checkDir = (velocity > 0) ? dir : dir + M_PI;
 
         float checkX = newX + std::cos(checkDir) * radius;
@@ -189,10 +172,12 @@ void Player::update(float deltaTime, const Map& map) {
         }
     }
 
+    // damage timer update
     if (damageTimer > 0.0f) {
         damageTimer -= deltaTime;
         if (damageTimer < 0.0f) damageTimer = 0.0f;
     }
+
 }
 
 void Player::render(Renderer& renderer) {
