@@ -4,10 +4,20 @@
 #include <algorithm>
 #include <cmath>
 
-Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false),  state(GameState::Menu), enemySpawnTimer(0.0f), enemyRespawnCheckTimer(0.0f) {
+Game::Game() : renderer(800, 600, "Doom Clone"),
+    player(nullptr), 
+    map(nullptr), 
+    isRunning(false),  
+    state(GameState::Menu), 
+    enemySpawnTimer(0.0f), 
+    enemyRespawnCheckTimer(0.0f),
+    backgroundMusic(nullptr),
+    musicEnabled(true) {
 }
 
-Game::~Game() {}
+Game::~Game() {
+    cleanupMusic();
+}
 
 
 void Game::init() {
@@ -29,6 +39,12 @@ void Game::init() {
     //*****LOAD FIRE AND DEAD TEXTURE*****
     renderer.loadGunFireTexture("assets/textures/gun_fire.bmp");
     renderer.loadDeadEnemyTexture("assets/textures/dead_enemy.bmp");
+
+    //***MUSIC***
+    initMusic();
+    loadMusic("assets/music/RIPandTEAR.ogg");
+    setMusicVolume(64);
+    playMusic(true);
 }
 
 void Game::run() {
@@ -218,4 +234,41 @@ void Game::checkRespawns() {
             std::cout << "Enemy respawned at (" << enemy->getX() << ", " << enemy->getY() << ")\n";
         }
     }
+}
+//*******MUSIC METHODS*******
+void Game::initMusic() {
+    // init mixer
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        std::cout << "SDL_mixer could not initialize! Error: " << Mix_GetError() << std::endl;
+        musicEnabled = false;
+    }
+}
+
+void Game::loadMusic(const std::string& path) {
+    if (!musicEnabled) return;
+    if (backgroundMusic) {
+        Mix_FreeMusic(backgroundMusic);
+    }
+    backgroundMusic = Mix_LoadMUS(path.c_str());
+    if (!backgroundMusic) {
+        std::cout << "Failed to load music: " << path << " Error: " << Mix_GetError() << std::endl;
+        return;
+    }
+}
+
+void Game::playMusic(bool loop) {
+    if (!musicEnabled || !backgroundMusic) return;
+    Mix_PlayMusic(backgroundMusic, loop ? -1 : 1);
+}
+
+void Game::setMusicVolume(int volume) {
+    Mix_VolumeMusic(volume);
+}
+
+void Game::cleanupMusic() {
+    if (backgroundMusic) {
+        Mix_FreeMusic(backgroundMusic);
+        backgroundMusic = nullptr;
+    }
+    Mix_CloseAudio();
 }

@@ -38,7 +38,7 @@ private:
     float damageTimer;
 public:
     static constexpr int MAX_HP = 100; //const for max player hp
-    static constexpr float DAMAGE_FLASH_DURATION = 0.5f;
+    static constexpr float DAMAGE_FLASH_DURATION = 0.3f;
     Player(float startX, float startY);
     ~Player();
 
