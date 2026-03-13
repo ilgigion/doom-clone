@@ -33,7 +33,7 @@ private:
 
     //*****KILL COUNT FOR BETTER EXP FOR PLAYER***
     int killCount;
-    
+
     // get damage effect
     float damageTimer;
 public:
@@ -43,7 +43,7 @@ public:
     ~Player();
 
     // in future: moving player
-    void update(float deltaTime, const Map& map); 
+    void update(float deltaTime, const Map& map);
     // renderring
     void render(class Renderer& renderer) override;
     // keyboard input
@@ -74,6 +74,9 @@ public:
 
     // timer for damage effect
     float getDamageTimer() const;
+    constexpr float getMaxSpeed() const { return maxSpeed; }
+    constexpr float getRadius() const { return radius; }
+    constexpr float getFOV() const { return fov; }
 };
 
 #endif

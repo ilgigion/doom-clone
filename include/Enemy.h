@@ -42,6 +42,14 @@ public:
     static constexpr float DEATH_TIMEOUT = 1.0f; //time before corpse disappears
     static constexpr float RESPAWN_DELAY = 10.0f; //time before respawn
 
+    constexpr float getAttackRangeForType(EnemyType type) {
+        return (type == EnemyType::Melee) ? ATTACK_RANGE : RANGED_ATTACK_RANGE;
+    }
+
+    constexpr float getCooldownForType(EnemyType type) {
+        return (type == EnemyType::Melee) ? ATTACK_COOLDOWN_MILI : ATTACK_COOLDOWN_RANGE;
+    }
+
     Enemy(float startX, float startY, EnemyType enemyType);
 
     void update(Player& player, const Map& map, float deltaTime);

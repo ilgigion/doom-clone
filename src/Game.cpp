@@ -5,11 +5,11 @@
 #include <cmath>
 
 Game::Game() : renderer(800, 600, "Doom Clone"),
-    player(nullptr), 
-    map(nullptr), 
-    isRunning(false),  
-    state(GameState::Menu), 
-    enemySpawnTimer(0.0f), 
+    player(nullptr),
+    map(nullptr),
+    isRunning(false),
+    state(GameState::Menu),
+    enemySpawnTimer(0.0f),
     enemyRespawnCheckTimer(0.0f),
     backgroundMusic(nullptr),
     musicEnabled(true) {
@@ -21,30 +21,38 @@ Game::~Game() {
 
 
 void Game::init() {
-    map = std::make_unique<Map>();
-    player = std::make_unique<Player>(1.5f, 1.5f);
-    spawnEnemies();
-    isRunning = true;
-    state = GameState::Menu;
-    menu.reset();
+    try {
+        map = std::make_unique<Map>();
+        player = std::make_unique<Player>(1.5f, 1.5f);
+        spawnEnemies();
+        isRunning = true;
+        state = GameState::Menu;
+        menu.reset();
 
-    renderer.loadWallTexture(1, "assets/textures/wall0.bmp");
-    renderer.loadFloorTexture("assets/textures/floor0.bmp");
-    renderer.loadCeilingTexture("assets/textures/roof0.bmp");
-    renderer.loadGunTexture("assets/textures/gun.bmp");
-    renderer.loadEnemyTexture(EnemyType::Melee, "assets/textures/enemy_melee.bmp");
-    renderer.loadEnemyTexture(EnemyType::Ranged, "assets/textures/enemy_range.bmp");
-    menu.loadTextures(renderer.getSDLRenderer());
+        renderer.loadWallTexture(1, "assets/textures/wall0.bmp");
+        renderer.loadFloorTexture("assets/textures/floor0.bmp");
+        renderer.loadCeilingTexture("assets/textures/roof0.bmp");
+        renderer.loadGunTexture("assets/textures/gun.bmp");
+        renderer.loadEnemyTexture(EnemyType::Melee, "assets/textures/enemy_melee.bmp");
+        renderer.loadEnemyTexture(EnemyType::Ranged, "assets/textures/enemy_range.bmp");
+        menu.loadTextures(renderer.getSDLRenderer());
 
-    //*****LOAD FIRE AND DEAD TEXTURE*****
-    renderer.loadGunFireTexture("assets/textures/gun_fire.bmp");
-    renderer.loadDeadEnemyTexture("assets/textures/dead_enemy.bmp");
+        //*****LOAD FIRE AND DEAD TEXTURE*****
+        renderer.loadGunFireTexture("assets/textures/gun_fire.bmp");
+        renderer.loadDeadEnemyTexture("assets/textures/dead_enemy.bmp");
 
-    //***MUSIC***
-    initMusic();
-    loadMusic("assets/music/RIPandTEAR.ogg");
-    setMusicVolume(64);
-    playMusic(true);
+        //***MUSIC***
+        initMusic();
+        loadMusic("assets/music/RIPandTEAR.ogg");
+        setMusicVolume(64);
+        playMusic(true);
+    } catch (const ResourceLoadException& e) {
+        std::cerr << "Resource error: " << e.what() << std::endl;
+        throw InitializationException(std::string(e.what()));
+    } catch (const std::exception& e) {
+        std::cerr << "Initialization error: " << e.what() << std::endl;
+        throw InitializationException(e.what());
+    }
 }
 
 void Game::run() {

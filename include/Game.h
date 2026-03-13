@@ -1,5 +1,20 @@
 #ifndef GAME_H
 #define GAME_H
+#include <stdexcept>
+#include <string>
+
+//сustom exceptions for specific error types
+class ResourceLoadException : public std::runtime_error {
+public:
+    explicit ResourceLoadException(const std::string& resource)
+        : std::runtime_error("Failed to load resource: " + resource) {}
+};
+
+class InitializationException : public std::runtime_error {
+public:
+    explicit InitializationException(const std::string& msg)
+        : std::runtime_error("Initialization failed: " + msg) {}
+};
 
 #include "Renderer.h"
 #include "Player.h"
@@ -33,7 +48,7 @@ private:
     static constexpr float SPAWN_INTERVAL = 8.0f;    // const for spawning new enemies
     static constexpr float RESPAWN_CHECK_INTERVAL = 1.0f; // check respawn every sec
     static constexpr int MAX_ENEMIES = 50;            // max amount of enemies
-    
+
     //*******MUSIC*****
     Mix_Music* backgroundMusic;
     bool musicEnabled;
@@ -53,7 +68,7 @@ public:
     void initMusic();
     void loadMusic(const std::string& path);
     void playMusic(bool loop = true);
-    void setMusicVolume(int volume);    
+    void setMusicVolume(int volume);
     void cleanupMusic();
 };
 

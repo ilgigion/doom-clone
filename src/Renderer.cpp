@@ -5,6 +5,63 @@
 #include <SDL2/SDL.h>
 #include <cmath>
 #include <iostream>
+#include  <Game.h>
+#include <optional>
+
+//made to draw numbers on the screen for kill count without libs
+void Renderer::drawDigit(int x, int y, int digit, int r, int g, int b) {
+    // Pattern for digits 0-9 (3 width, 5 height)
+    // 1 = pixel on, 0 = pixel off
+    const int patterns[10][5] = {
+        {0b110, 0b101, 0b101, 0b101, 0b110}, // 0
+        {0b010, 0b110, 0b010, 0b010, 0b111}, // 1
+        {0b110, 0b001, 0b110, 0b100, 0b111}, // 2
+        {0b110, 0b001, 0b110, 0b001, 0b110}, // 3
+        {0b101, 0b101, 0b111, 0b001, 0b001}, // 4
+        {0b111, 0b100, 0b110, 0b001, 0b110}, // 5
+        {0b110, 0b100, 0b110, 0b101, 0b110}, // 6
+        {0b111, 0b001, 0b010, 0b100, 0b100}, // 7
+        {0b110, 0b101, 0b110, 0b101, 0b110}, // 8
+        {0b110, 0b101, 0b111, 0b001, 0b110}  // 9
+    };
+
+    if (digit < 0 || digit > 9) return;
+
+    SDL_SetRenderDrawColor(sdlRenderer, r, g, b, 255);
+
+    //scale factor (make pixels bigger)
+    int scale = 4;
+
+    for (int row = 0; row < 5; row++) {
+        int pattern = patterns[digit][row];
+        for (int col = 0; col < 3; col++) {
+            if ((pattern >> (2 - col)) & 1) {
+                SDL_Rect pixel = {x + col * scale, y + row * scale, scale, scale};
+                SDL_RenderFillRect(sdlRenderer, &pixel);
+            }
+        }
+    }
+}
+
+//COSTIL to draw a full number
+void Renderer::drawNumber(int x, int y, int number, int r, int g, int b) {
+    if (number == 0) {
+        drawDigit(x, y, 0, r, g, b);
+        return;
+    }
+    //convert number to string to iterate digits
+    std::string numStr = std::to_string(number);
+    int digitWidth = 3 * 4; //3 columns * scale 4
+    int gap = 4; //space between digits
+
+    //center the number roughly or draw from left
+    //let's draw from left to right
+    for (char c : numStr) {
+        int digit = c - '0';
+        drawDigit(x, y, digit, r, g, b);
+        x += digitWidth + gap;
+    }
+}
 
 //made to draw numbers on the screen for kill count without libs
 void Renderer::drawDigit(int x, int y, int digit, int r, int g, int b) {
@@ -150,35 +207,29 @@ SDL_Renderer* Renderer::getSDLRenderer() {
     return sdlRenderer;
 }
 
-bool Renderer::loadWallTexture(int id, const std::string& path) {
+std::optional<bool> Renderer::loadWallTexture(int id, const std::string& path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     if (surface == nullptr) {
-        std::cout << "Unable to load wall texture: " << path << " Error: " << SDL_GetError() << std::endl;
-        return false;
+        throw ResourceLoadException("Wall texture: " + path + " - " + SDL_GetError());
     }
 
-    // set black as empty
     SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
-
     SDL_Texture* texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
     SDL_FreeSurface(surface);
 
     if (texture == nullptr) {
-        std::cout << "Unable to create texture from surface: " << SDL_GetError() << std::endl;
-        return false;
+        throw ResourceLoadException("Failed to create wall texture: " + path);
     }
 
     wallTextures[id] = texture;
 
-    // size of first texture
     if (wallTextures.size() == 1) {
         SDL_QueryTexture(texture, nullptr, nullptr, &textureWidth, &textureHeight);
     }
-
     return true;
 }
 
-bool Renderer::loadFloorTexture(const std::string& path) {
+std::optional<bool> Renderer::loadFloorTexture(const std::string &path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     if (surface == nullptr) {
         std::cout << "Unable to load floor texture: " << path << std::endl;
@@ -190,7 +241,7 @@ bool Renderer::loadFloorTexture(const std::string& path) {
     return floorTexture != nullptr;
 }
 
-bool Renderer::loadCeilingTexture(const std::string& path) {
+std::optional<bool> Renderer::loadCeilingTexture(const std::string &path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
     if (surface == nullptr) {
@@ -203,7 +254,7 @@ bool Renderer::loadCeilingTexture(const std::string& path) {
     return ceilingTexture != nullptr;
 }
 
-bool Renderer::loadGunTexture(const std::string& path) {
+std::optional<bool> Renderer::loadGunTexture(const std::string &path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
     if (surface == nullptr) {
@@ -242,7 +293,7 @@ bool Renderer::loadDeadEnemyTexture(const std::string& path) {
     return deadEnemyTexture != nullptr;
 }
 
-bool Renderer::loadEnemyTexture(EnemyType type, const std::string& path) {
+std::optional<bool> Renderer::loadEnemyTexture(EnemyType type, const std::string &path) {
     SDL_Surface* surface = SDL_LoadBMP(path.c_str());
     if (surface == nullptr) {
         std::cout << "Unable to load enemy texture: " << path << " Error: " << SDL_GetError() << std::endl;
@@ -713,7 +764,7 @@ void Renderer::renderDamageOverlay(float alpha) {
     alpha = 0.2;
     Uint8 alphaValue = static_cast<Uint8>(alpha * 255.0f);
     // switch on blendering colors
-    SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND); 
+    SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND);
     // save current render color
     Uint8 r, g, b, a;
     SDL_GetRenderDrawColor(sdlRenderer, &r, &g, &b, &a);
@@ -722,7 +773,7 @@ void Renderer::renderDamageOverlay(float alpha) {
     // draw red
     SDL_Rect overlay = {0, 0, width, height};
     SDL_RenderFillRect(sdlRenderer, &overlay);
-    
+
     // recover original color
     SDL_SetRenderDrawColor(sdlRenderer, r, g, b, a);
     // switch off blendering colors

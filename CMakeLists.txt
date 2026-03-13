@@ -10,7 +10,7 @@ include_directories("${SDL2_PATH}/include")
 include_directories("${SDL2_MIXER_PATH}/include")
 include_directories("include")
 
-# Явно указываем пути к библиотекам
+# path to lib
 link_directories("${SDL2_PATH}/lib")
 link_directories("${SDL2_MIXER_PATH}/lib")
 
@@ -37,17 +37,17 @@ set(HEADERS
         include/Projectile.h
         include/Weapon.h
         include/Game.h
+        include/SDLWrappers.h
 )
 
 add_executable(DoomClone ${SOURCES} ${HEADERS})
 
-# === ВАЖНО: Порядок библиотек имеет значение! ===
-# SDL2_mixer должен идти ПОСЛЕ SDL2
-target_link_libraries(DoomClone 
-    mingw32 
-    SDL2main 
-    SDL2 
-    SDL2_mixer  # <-- После SDL2
+
+target_link_libraries(DoomClone
+        mingw32
+        SDL2main
+        SDL2
+        SDL2_mixer
 )
 
 add_executable(DoomClone_tests
@@ -62,18 +62,18 @@ add_executable(DoomClone_tests
         src/Game.cpp
         src/Menu.cpp
 )
-target_link_libraries(DoomClone_tests 
-    mingw32 
-    SDL2main 
-    SDL2 
-    SDL2_mixer
+target_link_libraries(DoomClone_tests
+        mingw32
+        SDL2main
+        SDL2
+        SDL2_mixer
 )
 
 add_custom_command(TARGET DoomClone POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${SDL2_PATH}/bin/SDL2.dll"
         $<TARGET_FILE_DIR:DoomClone>/SDL2.dll
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${SDL2_MIXER_PATH}/bin/SDL2_mixer.dll"
         $<TARGET_FILE_DIR:DoomClone>/SDL2_mixer.dll
 )
