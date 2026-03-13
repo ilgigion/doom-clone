@@ -156,9 +156,9 @@ TEST(testMapWalls) {
 //Test that inside of the map is free space
 TEST(testMapEmptySpace) {
     Map map;
-    ASS_FALSE(map.isWall(1, 1));
-    ASS_FALSE(map.isWall(5, 5));
-    ASS_FALSE(map.isWall(10, 10));
+    ASS_FALSE(map.isWall(1, 3));
+    ASS_FALSE(map.isWall(6, 4));
+    ASS_FALSE(map.isWall(11, 13));
 }
 
 //Check of the processing of coordinates out from the border
