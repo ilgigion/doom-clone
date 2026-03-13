@@ -9,10 +9,10 @@ Player::Player(float startX, float startY) : Entity(startX, startY), hp(MAX_HP),
       shootCooldown(0.0f), shootAnimTimer(0.0f) {
     //parametrs
     velocity = 0.0f;
-    maxSpeed = 0.1f;
-    acceleration = 0.005f;
-    deceleration = 0.005f;
-    rotSpeed = 0.04f;
+    maxSpeed = 0.04f;
+    acceleration = 0.002f;
+    deceleration = 0.002f;
+    rotSpeed = 0.018f;
     radius = 0.25f;
 
     dir = 0.0f;

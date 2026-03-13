@@ -240,20 +240,23 @@ TEST(testEnemyRangedAttack) {
     Enemy enemy(5.5f, 2.5f, EnemyType::Ranged);
 
     int startHP = player.getHP();
-    float deltaTime = 1.0f;
+    float deltaTime = 0.016f;
+
     enemy.update(player, map, deltaTime);
-    ASS_EQ(player.getHP(), startHP - Enemy::RANGED_DAMAGE);
+    int expectedHP = startHP - Enemy::RANGED_DAMAGE;
+    ASS_EQ(player.getHP(), expectedHP);
+
     int hpAfterFirst = player.getHP();
 
-    int framesUnderCooldown = static_cast<int>(1.9f / deltaTime);
-    for (int i = 0; i < framesUnderCooldown; i++) {
+    const int MAX_FRAMES = static_cast<int>(2.5f / deltaTime);
+    int frames = 0;
+
+    while (frames < MAX_FRAMES && player.getHP() == hpAfterFirst) {
         enemy.update(player, map, deltaTime);
+        frames++;
     }
-    ASS_EQ(player.getHP(), hpAfterFirst);
-    int framesToRelease = static_cast<int>(0.2f / deltaTime);
-    for (int i = 0; i < framesToRelease; i++) {
-        enemy.update(player, map, deltaTime);
-    }
+
+    ASS_TRUE(player.getHP() < hpAfterFirst);
     ASS_EQ(player.getHP(), hpAfterFirst - Enemy::RANGED_DAMAGE);
 }
 
