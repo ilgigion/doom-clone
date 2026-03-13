@@ -150,6 +150,22 @@ void Player::update(float deltaTime, const Map& map) {
             if (velocity > 0) velocity = 0;
         }
     }
+    else {
+        // braking if no keys is pressed
+        if (velocity > 0) {
+            velocity -= deceleration;
+            if (velocity < 0) velocity = 0;
+        } else if (velocity < 0) {
+            velocity += deceleration;
+            if (velocity > 0) velocity = 0;
+        }
+    }
+
+    // 3. moving player in dependence on velocity
+    if (velocity != 0) {
+        float moveStep = velocity;
+        float newX = x + std::cos(dir) * moveStep;
+        float newY = y + std::sin(dir) * moveStep;
 
     // 3. moving player in dependence on velocity
     if (velocity != 0) {

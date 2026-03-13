@@ -63,6 +63,61 @@ void Renderer::drawNumber(int x, int y, int number, int r, int g, int b) {
     }
 }
 
+//made to draw numbers on the screen for kill count without libs
+void Renderer::drawDigit(int x, int y, int digit, int r, int g, int b) {
+    // Pattern for digits 0-9 (3 width, 5 height)
+    // 1 = pixel on, 0 = pixel off
+    const int patterns[10][5] = {
+        {0b110, 0b101, 0b101, 0b101, 0b110}, // 0
+        {0b010, 0b110, 0b010, 0b010, 0b111}, // 1
+        {0b110, 0b001, 0b110, 0b100, 0b111}, // 2
+        {0b110, 0b001, 0b110, 0b001, 0b110}, // 3
+        {0b101, 0b101, 0b111, 0b001, 0b001}, // 4
+        {0b111, 0b100, 0b110, 0b001, 0b110}, // 5
+        {0b110, 0b100, 0b110, 0b101, 0b110}, // 6
+        {0b111, 0b001, 0b010, 0b100, 0b100}, // 7
+        {0b110, 0b101, 0b110, 0b101, 0b110}, // 8
+        {0b110, 0b101, 0b111, 0b001, 0b110}  // 9
+    };
+
+    if (digit < 0 || digit > 9) return;
+
+    SDL_SetRenderDrawColor(sdlRenderer, r, g, b, 255);
+
+    //scale factor (make pixels bigger)
+    int scale = 4;
+
+    for (int row = 0; row < 5; row++) {
+        int pattern = patterns[digit][row];
+        for (int col = 0; col < 3; col++) {
+            if ((pattern >> (2 - col)) & 1) {
+                SDL_Rect pixel = {x + col * scale, y + row * scale, scale, scale};
+                SDL_RenderFillRect(sdlRenderer, &pixel);
+            }
+        }
+    }
+}
+
+//COSTIL to draw a full number
+void Renderer::drawNumber(int x, int y, int number, int r, int g, int b) {
+    if (number == 0) {
+        drawDigit(x, y, 0, r, g, b);
+        return;
+    }
+    //convert number to string to iterate digits
+    std::string numStr = std::to_string(number);
+    int digitWidth = 3 * 4; //3 columns * scale 4
+    int gap = 4; //space between digits
+
+    //center the number roughly or draw from left
+    //let's draw from left to right
+    for (char c : numStr) {
+        int digit = c - '0';
+        drawDigit(x, y, digit, r, g, b);
+        x += digitWidth + gap;
+    }
+}
+
 Renderer::Renderer(int w, int h, const char* title) {
     width = w;
     height = h;
