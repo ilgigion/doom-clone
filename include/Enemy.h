@@ -40,7 +40,7 @@ public:
     static constexpr float ATTACK_COOLDOWN_MILI = 1.5f; //delay mili
     static constexpr float ATTACK_COOLDOWN_RANGE = 2.0f; //delay range
     static constexpr float DEATH_TIMEOUT = 1.0f; //time before corpse disappears
-    static constexpr float RESPAWN_DELAY = 20.0f; //time before respawn
+    static constexpr float RESPAWN_DELAY = 10.0f; //time before respawn
 
     Enemy(float startX, float startY, EnemyType enemyType);
 

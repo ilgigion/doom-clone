@@ -197,6 +197,7 @@ void Game::spawnEnemies()
 {
     enemies.clear();
 
+    enemies.push_back(std::make_unique<Enemy>(10.0f, 7.0f, EnemyType::Melee));
     enemies.push_back(std::make_unique<Enemy>(5.0f, 5.0f, EnemyType::Melee));
     enemies.push_back(std::make_unique<Enemy>(8.0f, 3.0f, EnemyType::Melee));
     enemies.push_back(std::make_unique<Enemy>(13.0f, 10.0f, EnemyType::Ranged));
