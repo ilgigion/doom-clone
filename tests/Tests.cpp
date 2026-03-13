@@ -7,6 +7,7 @@
 #include "Entity.h"
 #include "Player.h"
 #include "Map.h"
+#include "Enemy.h"
 
 int passTest = 0; //counter for passed
 int failTest = 0; //counter for failed
@@ -29,7 +30,7 @@ int failTest = 0; //counter for failed
 
 
 //check if numbers are equal
-#define ASS_EQ(a, b) if ((a) != (b)) throw std::runtime_error("Expected " + std::to_string(b) + " but got " + std::to_string(a))
+#define ASS_EQ(a, b) if ((a) != (b)) throw std::runtime_error("Expected " + std::to_string(static_cast<int>(b)) + " but got " + std::to_string(static_cast<int>(a)))
 //check if numbers are nearby at some distance
 #define ASS_NEAR(a, b, eps) if (std::abs((a) - (b)) > (eps)) throw std::runtime_error("Values not close enough")
 //check for true(for example we gotta get true but get false)
@@ -166,6 +167,120 @@ TEST(testMapOutOfBounds) {
     ASS_TRUE(map.isWall(5, 25));
 }
 
+
+//*******ENEMY TESTS*****
+//Check of enemy creation
+TEST(testEnemyCreation) {
+    Enemy enemy(5.0f, 5.0f, EnemyType::Melee);
+    ASS_EQ(enemy.getX(), 5.0f);
+    ASS_EQ(enemy.getY(), 5.0f);
+    ASS_EQ(enemy.getType(), EnemyType::Melee);
+    ASS_EQ(enemy.getHP(), Enemy::MAX_HP);
+    ASS_TRUE(enemy.isAlive());
+}
+
+
+//Check enemy taking damage
+TEST(testEnemyTakeDamage) {
+    Enemy enemy(0.0f, 0.0f, EnemyType::Ranged);
+    enemy.takeDamage(30);
+    ASS_EQ(enemy.getHP(), Enemy::MAX_HP - 30);
+    ASS_TRUE(enemy.isAlive());
+    enemy.takeDamage(100);
+    ASS_EQ(enemy.getHP(), 0);
+    ASS_FALSE(enemy.isAlive());
+}
+
+//Check enemy death timer
+TEST(testEnemyDeathTimer) {
+    Enemy enemy(0.0f, 0.0f, EnemyType::Melee);
+    enemy.takeDamage(200);
+    ASS_FALSE(enemy.isAlive());
+    ASS_NEAR(enemy.getDeathTimer(), Enemy::DEATH_TIMEOUT, 0.001f);
+    enemy.updateDeathTimer(0.5f);
+    ASS_NEAR(enemy.getDeathTimer(), Enemy::DEATH_TIMEOUT - 0.5f, 0.001f);
+}
+
+//Check respawn
+TEST(testEnemyRespawnLogic) {
+    Enemy enemy(3.0f, 3.0f, EnemyType::Melee);
+    enemy.takeDamage(200);
+    ASS_FALSE(enemy.shouldRespawn());
+    enemy.updateDeathTimer(Enemy::RESPAWN_DELAY + Enemy::DEATH_TIMEOUT + 1.0f);
+    ASS_TRUE(enemy.shouldRespawn());
+    enemy.respawn();
+    ASS_TRUE(enemy.isAlive());
+    ASS_EQ(enemy.getHP(), Enemy::MAX_HP);
+    ASS_EQ(enemy.getX(), 3.0f);
+    ASS_EQ(enemy.getY(), 3.0f);
+}
+
+//Check what enemy sees
+TEST(testEnemyLineOfSight) {
+    Map map;
+    Player player(2.0f, 2.0f);
+    Enemy enemy(4.0f, 2.0f, EnemyType::Ranged);
+    ASS_TRUE(enemy.hasLineOfSight(player, map));
+}
+
+//Check melee attack
+TEST(testEnemyMeleeAttack) {
+    Map map;
+    Player player(0.0f, 0.0f);
+    Enemy enemy(0.5f, 0.0f, EnemyType::Melee);
+    int startHP = player.getHP();
+    enemy.update(player, map, 2.0f);
+    ASS_EQ(player.getHP(), startHP - Enemy::MELEE_DAMAGE);
+}
+
+//Check range attack
+TEST(testEnemyRangedAttack) {
+    Map map;
+    Player player(2.5f, 2.5f);
+    Enemy enemy(5.5f, 2.5f, EnemyType::Ranged);
+
+    int startHP = player.getHP();
+    float deltaTime = 0.016f;
+
+    enemy.update(player, map, deltaTime);
+    int expectedHP = startHP - Enemy::RANGED_DAMAGE;
+    ASS_EQ(player.getHP(), expectedHP);
+
+    int hpAfterFirst = player.getHP();
+
+    const int MAX_FRAMES = static_cast<int>(2.5f / deltaTime);
+    int frames = 0;
+
+    while (frames < MAX_FRAMES && player.getHP() == hpAfterFirst) {
+        enemy.update(player, map, deltaTime);
+        frames++;
+    }
+
+    ASS_TRUE(player.getHP() < hpAfterFirst);
+    ASS_EQ(player.getHP(), hpAfterFirst - Enemy::RANGED_DAMAGE);
+}
+
+//Check if blocked by wall
+TEST(testEnemyRangedAttackBlockedByWall) {
+    Map map;
+    Player player(0.0f, 0.0f);
+    Enemy enemy(3.0f, 0.0f, EnemyType::Ranged);
+    int startHP = player.getHP();
+    enemy = Enemy(6.0f, 0.0f, EnemyType::Ranged);
+    enemy.update(player, map, 2.0f);
+    ASS_EQ(player.getHP(), startHP);
+}
+
+//Check if out of range
+TEST(testEnemyRangedAttackOutOfRange) {
+    Map map;
+    Player player(0.0f, 0.0f);
+    Enemy enemy(6.0f, 0.0f, EnemyType::Ranged);
+    int startHP = player.getHP();
+    enemy.update(player, map, 2.0f);
+    ASS_EQ(player.getHP(), startHP);
+}
+
 //*****OUTPUT AND WORK OF THE TESTS******
 int main() {
     //*****OUTPUT FOR UNDERSTANDING*****
@@ -193,6 +308,17 @@ int main() {
     RUN_TEST(testMapEmptySpace);
     RUN_TEST(testMapOutOfBounds);
 
+
+    //*******TESTS FOR ENEMY******
+    RUN_TEST(testEnemyCreation);
+    RUN_TEST(testEnemyTakeDamage);
+    RUN_TEST(testEnemyDeathTimer);
+    RUN_TEST(testEnemyRespawnLogic);
+    RUN_TEST(testEnemyLineOfSight);
+    RUN_TEST(testEnemyMeleeAttack);
+    RUN_TEST(testEnemyRangedAttack);
+    RUN_TEST(testEnemyRangedAttackBlockedByWall);
+    RUN_TEST(testEnemyRangedAttackOutOfRange);
 
     //******CHECK HOW TESTS WORKED****
     if (failTest > 0) {
