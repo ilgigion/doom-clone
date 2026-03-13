@@ -5,7 +5,15 @@
 #include "Player.h"
 #include "Map.h"
 #include "Enemy.h"
+#include "Menu.h"
 #include <memory>
+#include <vector>
+
+enum class GameState
+{
+    Menu,
+    Playing
+};
 
 class Game {
 private:
@@ -14,6 +22,9 @@ private:
     std::unique_ptr<Map> map;
     std::vector<std::unique_ptr<Enemy>> enemies;
     bool isRunning;
+
+    Menu menu;
+    GameState state;
 
     //****TIMERS FOR RESPAWN AND SPAWN OF ENEMIES***
     float enemySpawnTimer;        // timer fornext spawn

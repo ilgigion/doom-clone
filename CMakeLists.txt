@@ -18,6 +18,8 @@ set(SOURCES
         src/Entity.cpp
         src/Player.cpp
         src/Enemy.cpp
+        include/Menu.h
+        src/Menu.cpp
         src/Projectile.cpp
         src/Weapon.cpp
 )

@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
-Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false), enemySpawnTimer(0.0f), enemyRespawnCheckTimer(0.0f){
+Game::Game() : renderer(800, 600, "Doom Clone"), player(nullptr), map(nullptr), isRunning(false),  state(GameState::Menu), enemySpawnTimer(0.0f), enemyRespawnCheckTimer(0.0f) {
 }
 
 Game::~Game() {}
@@ -15,7 +15,8 @@ void Game::init() {
     player = std::make_unique<Player>(1.5f, 1.5f);
     spawnEnemies();
     isRunning = true;
-
+    state = GameState::Menu;
+    menu.reset();
 
     renderer.loadWallTexture(1, "assets/textures/wall0.bmp");
     renderer.loadFloorTexture("assets/textures/floor0.bmp");
@@ -23,6 +24,7 @@ void Game::init() {
     renderer.loadGunTexture("assets/textures/gun.bmp");
     renderer.loadEnemyTexture(EnemyType::Melee, "assets/textures/enemy_melee.bmp");
     renderer.loadEnemyTexture(EnemyType::Ranged, "assets/textures/enemy_range.bmp");
+    menu.loadTextures(renderer.getSDLRenderer());
 
     //*****LOAD FIRE AND DEAD TEXTURE*****
     renderer.loadGunFireTexture("assets/textures/gun_fire.bmp");
@@ -48,96 +50,125 @@ void Game::update(float deltaTime) {
         if (e.type == SDL_QUIT) {
             isRunning = false;
         }
-        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-            isRunning = false;
+
+        if (state == GameState::Menu) {
+            if (e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) {
+                    state = GameState::Playing;
+                }
+                else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    isRunning = false;
+                }
+            }
+
+            if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+                int mouseX = e.button.x;
+                int mouseY = e.button.y;
+
+                if (menu.isStartClicked(mouseX, mouseY)) {
+                    state = GameState::Playing;
+                }
+            }
+        }
+        else if (state == GameState::Playing) {
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+                state = GameState::Menu;
+                menu.reset();
+            }
         }
     }
 
-    if (player != nullptr && map != nullptr) {
+    if (state == GameState::Playing && player != nullptr && map != nullptr) {
         player->handleInput(SDL_GetKeyboardState(NULL));
         player->update(deltaTime, *map);
-    }
 
-    if (player && map) {
-        player->handleInput(SDL_GetKeyboardState(NULL));
-        // Shoot on SPACE
-        if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_SPACE]) {
-            player->shoot(enemies, *map);
+        if (player && map) {
+            player->handleInput(SDL_GetKeyboardState(NULL));
+            // Shoot on SPACE
+            if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_SPACE]) {
+                player->shoot(enemies, *map);
+            }
+            player->update(0.016f, *map);
+            //update players projectiles
+            player->updateProjectiles(0.016f, *map, enemies);
         }
-        player->update(0.016f, *map);
-        //update players projectiles
-        player->updateProjectiles(0.016f, *map, enemies);
-    }
 
-    //timer for spawning additional enemies
-    enemySpawnTimer += 0.016f;
-    if (enemySpawnTimer >= SPAWN_INTERVAL) {
-        enemySpawnTimer = 0.0f;
-        spawnAdditionalEnemy();
-    }
-
-    //timer for checking respawns
-    enemyRespawnCheckTimer += 0.016f;
-    if (enemyRespawnCheckTimer >= RESPAWN_CHECK_INTERVAL) {
-        enemyRespawnCheckTimer = 0.0f;
-        checkRespawns();
-    }
-
-    //update enemies
-    for (auto& enemy : enemies) {
-        if (enemy && enemy->isAlive()) {
-            enemy->update(*player, *map, 0.016f);
-        } else if (enemy) {
-            //dead enemies update respawn timer
-            enemy->updateDeathTimer(0.016f);
+        //timer for spawning additional enemies
+        enemySpawnTimer += 0.016f;
+        if (enemySpawnTimer >= SPAWN_INTERVAL) {
+            enemySpawnTimer = 0.0f;
+            spawnAdditionalEnemy();
         }
-    }
 
-    //check if player is dead
-    if (player && !player->isAlive()) {
-        std::cout << "GAME OVER\n";
-        isRunning = false;
+        //timer for checking respawns
+        enemyRespawnCheckTimer += 0.016f;
+        if (enemyRespawnCheckTimer >= RESPAWN_CHECK_INTERVAL) {
+            enemyRespawnCheckTimer = 0.0f;
+            checkRespawns();
+        }
+
+        //update enemies
+        for (auto& enemy : enemies) {
+            if (enemy && enemy->isAlive()) {
+                enemy->update(*player, *map, 0.016f);
+            } else if (enemy) {
+                //dead enemies update respawn timer
+                enemy->updateDeathTimer(0.016f);
+            }
+        }
+
+        //check if player is dead
+        if (player && !player->isAlive()) {
+            std::cout << "GAME OVER\n";
+            isRunning = false;
+        }
     }
 }
 
 void Game::render(float deltaTime) {
     renderer.clear();
 
-    renderer.render3D(*player, *map, deltaTime);
-
-    renderer.resetSpriteZBuffer();
-
-    // sort enemies
-    std::vector<Enemy*> sortedEnemies;
-    for (auto& enemy : enemies) {
-        if (enemy) {
-            sortedEnemies.push_back(enemy.get());
-        }
+    if (state == GameState::Menu) {
+        menu.render(renderer.getSDLRenderer());
     }
+    else if (state == GameState::Playing) {
+        renderer.render3D(*player, *map, deltaTime);
 
-    std::sort(sortedEnemies.begin(), sortedEnemies.end(),
-        [this](Enemy* a, Enemy* b) {
-            float distA = std::hypot(a->getX() - player->getX(), a->getY() - player->getY());
-            float distB = std::hypot(b->getX() - player->getX(), b->getY() - player->getY());
-            return distA > distB;
-        });
+        renderer.resetSpriteZBuffer();
 
-    // drawing in order
-    for (auto* enemy : sortedEnemies) {
-        if (enemy->isAlive()) {
-            renderer.drawEnemySprite(*enemy, *player);
-            renderer.drawEnemyHPBar(enemy->getX(), enemy->getY(),
-                                  enemy->getHP(), Enemy::MAX_HP, *player, {255, 50, 50, 255});
-        } else {
-            // dead enemies
-            if (enemy->getDeathTimer() > 0.0f) {
-                renderer.drawDeadEnemySprite(*enemy, *player);
+        // sort enemies
+        std::vector<Enemy*> sortedEnemies;
+        for (auto& enemy : enemies) {
+            if (enemy) {
+                sortedEnemies.push_back(enemy.get());
             }
         }
+
+        std::sort(sortedEnemies.begin(), sortedEnemies.end(),
+            [this](Enemy* a, Enemy* b) {
+                float distA = std::hypot(a->getX() - player->getX(), a->getY() - player->getY());
+                float distB = std::hypot(b->getX() - player->getX(), b->getY() - player->getY());
+                return distA > distB;
+            });
+
+        // drawing in order
+        for (auto* enemy : sortedEnemies) {
+            if (enemy->isAlive()) {
+                renderer.drawEnemySprite(*enemy, *player);
+                renderer.drawEnemyHPBar(enemy->getX(), enemy->getY(),
+                                    enemy->getHP(), Enemy::MAX_HP, *player, {255, 50, 50, 255});
+            } else {
+                // dead enemies
+                if (enemy->getDeathTimer() > 0.0f) {
+                    renderer.drawDeadEnemySprite(*enemy, *player);
+                }
+            }
+        }
+
+        renderer.renderGun(*player);
+        renderer.renderHUD(*player);
     }
 
-    renderer.renderGun(*player);
-    renderer.renderHUD(*player);
     renderer.present();
 }
 
