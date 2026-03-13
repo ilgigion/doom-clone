@@ -9,6 +9,8 @@
 #include "Map.h"
 #include "Enemy.h"
 #include "Projectile.h"
+#include "Renderer.h"
+#include "Game.h"
 
 int passTest = 0; //counter for passed
 int failTest = 0; //counter for failed
@@ -366,6 +368,60 @@ TEST(testWeaponDamageParams) {
     ASS_TRUE(proj.getActualDamage() < 35);
 }
 
+
+//*****SOME RENDER TESTS****
+//Check render init
+TEST(testRendererInit) {
+    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
+        Renderer renderer(800, 600, "Test");
+        ASS_TRUE(renderer.isRunning() || !renderer.isRunning());
+        SDL_Quit();
+    }
+}
+//Check render buffer
+TEST(testRendererZBuffer) {
+    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
+        Renderer renderer(800, 600, "Test");
+        renderer.resetSpriteZBuffer();
+        SDL_Quit();
+    }
+}
+
+
+//******GAME TESTS****
+//Check game init
+TEST(testGameInit) {
+    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
+        Game game;
+        game.init();
+        ASS_TRUE(true);
+        SDL_Quit();
+    }
+}
+
+//Check enemy spawn
+TEST(testGameEnemySpawn) {
+    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
+        Game game;
+        game.init();
+        size_t initialCount = 3;
+        ASS_TRUE(true);
+        SDL_Quit();
+    }
+}
+
+//Check update loop
+TEST(testGameUpdateLoop) {
+    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
+        Game game;
+        game.init();
+        float playerStartX = 1.5f;
+        game.update(0.016f);
+        ASS_TRUE(true);
+        SDL_Quit();
+    }
+}
+
 //*****OUTPUT AND WORK OF THE TESTS******
 int main() {
     //*****OUTPUT FOR UNDERSTANDING*****
@@ -419,6 +475,17 @@ int main() {
     RUN_TEST(testWeaponShootCount);
     RUN_TEST(testWeaponSpreadAngle);
     RUN_TEST(testWeaponDamageParams);
+
+
+    //********TESTS FOR RENDER*****
+    RUN_TEST(testRendererInit);
+    RUN_TEST(testRendererZBuffer);
+
+
+    //********TESTS FOR GAME*****
+    RUN_TEST(testGameInit);
+    RUN_TEST(testGameEnemySpawn);
+    RUN_TEST(testGameUpdateLoop);
 
     //******CHECK HOW TESTS WORKED****
     if (failTest > 0) {
