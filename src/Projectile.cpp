@@ -74,3 +74,8 @@ int Projectile::getActualDamage() const {
     }
     return 0;//no damage beyond maxDist
 }
+
+//for tests
+void Projectile::setTraveledDist(float dist) {
+    traveledDist = dist;
+}
