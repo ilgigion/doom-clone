@@ -87,6 +87,8 @@ public:
     const TextureInfo* getEnemyTextureInfo(EnemyType type) const;
     void resetSpriteZBuffer();
 
+    void renderDamageOverlay(float alpha); // get damage effect
+
     SDL_Renderer* getSDLRenderer();
 };
 
