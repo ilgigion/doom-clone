@@ -22,7 +22,6 @@ set(SOURCES
         src/Entity.cpp
         src/Player.cpp
         src/Enemy.cpp
-        include/Menu.h
         src/Menu.cpp
         src/Projectile.cpp
         src/Weapon.cpp
@@ -32,6 +31,7 @@ set(HEADERS
         include/Enemy.h
         include/Entity.h
         include/Player.h
+        include/Menu.h
         include/Map.h
         include/Renderer.h
         include/Projectile.h

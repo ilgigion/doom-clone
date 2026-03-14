@@ -13,7 +13,7 @@ Player::Player(float startX, float startY) : Entity(startX, startY), hp(MAX_HP),
     acceleration = 0.002f;
     deceleration = 0.002f;
     rotSpeed = 0.018f;
-    radius = 0.25f;
+    radius = 0.3f;
 
     dir = 0.0f;
     fov = 60.0f * (3.14159f / 180.0f);

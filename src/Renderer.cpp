@@ -347,7 +347,7 @@ void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
 
         float distanceToWall = 0.0f;
         bool hitWall = false;
-        float stepSize = 0.05f;
+        float stepSize = 0.0075f;
 
         float testX = mapX;
         float testY = mapY;
