@@ -105,12 +105,14 @@ bool Enemy::hasLineOfSight(const Player& player, const Map& map) const {
 
 void Enemy::update(Player& player, const Map& map, float deltaTime)
 {
+    if (!std::isfinite(deltaTime) || deltaTime <= 0.0f) return;
     //if dead update respawn timer
     if (!isAlive()) {
-        deathTimer += deltaTime;
+        updateDeathTimer(deltaTime);
         return;
     }
 
+    attackTimer = std::max(0.0f, attackTimer - deltaTime);
     float dx = player.getX() - x;
     float dy = player.getY() - y;
     float distance = std::sqrt(dx * dx + dy * dy);
@@ -126,8 +128,6 @@ void Enemy::update(Player& player, const Map& map, float deltaTime)
             player.takeDamage(MELEE_DAMAGE);
             //drop timer for cooldown
             attackTimer = ATTACK_COOLDOWN_MILI;
-        } else {
-            attackTimer -= deltaTime;
         }
         return;
     }
@@ -141,52 +141,21 @@ void Enemy::update(Player& player, const Map& map, float deltaTime)
                 player.takeDamage(RANGED_DAMAGE);
                 //drop timer for cooldown
                 attackTimer = ATTACK_COOLDOWN_RANGE;
-            } else {
-                attackTimer -= deltaTime;
             }
         }
         //range enemies don't move when attack
         return;
     }
 
-    //if out of range drop timer
-    if (distance >= ATTACK_RANGE * 1.2f && distance >= RANGED_ATTACK_RANGE * 1.2f) {
-        attackTimer = 0.0f;
-    }
-
-
-    if (type == EnemyType::Melee)
-    {
-        if (distance > 0.7f)
-        {
-            dx /= distance;
-            dy /= distance;
-
-            float newX = x + dx * velocity * deltaTime;
-            float newY = y + dy * velocity * deltaTime;
-
-            if (!map.isWall((int)(newX + dx * radius), (int)y))
-                x = newX;
-
-            if (!map.isWall((int)x, (int)(newY + dy * radius)))
-                y = newY;
-        }
-    }
-    else if (type == EnemyType::Ranged)
-    {
-        if (distance > 3.0f)
-        {
-            dx /= distance;
-            dy /= distance;
-
-            float newX = x + dx * velocity * deltaTime;
-            float newY = y + dy * velocity * deltaTime;
-
-            if (!map.isWall((int)(newX + dx * radius), (int)y))
-                x = newX;
-
-            if (!map.isWall((int)x, (int)(newY + dy * radius)))
-                y = newY;
+    const float stoppingDistance = type == EnemyType::Melee ? 0.7f : 3.0f;
+    if (distance > stoppingDistance) {
+        const float travel = std::min(velocity * deltaTime, distance - stoppingDistance);
+        const int steps = std::max(1, static_cast<int>(std::ceil(travel / (radius * 0.5f))));
+        const float stepX = dx / distance * travel / steps;
+        const float stepY = dy / distance * travel / steps;
+        for (int step = 0; step < steps; ++step) {
+            if (map.canOccupy(x + stepX, y, radius)) x += stepX;
+            if (map.canOccupy(x, y + stepY, radius)) y += stepY;
         }
     }
 }

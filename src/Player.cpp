@@ -9,10 +9,10 @@ Player::Player(float startX, float startY) : Entity(startX, startY), hp(MAX_HP),
       shootCooldown(0.0f), shootAnimTimer(0.0f) {
     //parametrs
     velocity = 0.0f;
-    maxSpeed = 0.04f;
-    acceleration = 0.002f;
-    deceleration = 0.002f;
-    rotSpeed = 0.018f;
+    maxSpeed = 4.8f;
+    acceleration = 28.8f;
+    deceleration = 28.8f;
+    rotSpeed = 2.16f;
     radius = 0.3f;
 
     dir = 0.0f;
@@ -106,6 +106,7 @@ void Player::updateProjectiles(float deltaTime, const Map& map,
 
 
 void Player::update(float deltaTime, const Map& map) {
+    if (!std::isfinite(deltaTime) || deltaTime <= 0.0f) return;
 
     //update timer for shot animation
     if (shootAnimTimer > 0.0f) {
@@ -122,54 +123,26 @@ void Player::update(float deltaTime, const Map& map) {
         if (shootCooldown < 0.0f) shootCooldown = 0.0f;
     }
 
-    // 1. rotation
-    if (turnLeft) {
-        dir -= rotSpeed;
-    }
-    if (turnRight) {
-        dir += rotSpeed;
-    }
+    if (turnLeft) dir -= rotSpeed * deltaTime;
+    if (turnRight) dir += rotSpeed * deltaTime;
+    dir = std::remainder(dir, 2.0f * static_cast<float>(M_PI));
 
-    // 2. Velocity control
-    if (moveForward) {
-        velocity += acceleration;
-        if (velocity > maxSpeed) velocity = maxSpeed;
-    } 
-    else if (moveBackward) {
-        velocity -= acceleration;
-        if (velocity < -maxSpeed * 0.5f) velocity = -maxSpeed * 0.5f;
-    } 
-    else {
-        // braking if no keys is pressed
-        if (velocity > 0) {
-            velocity -= deceleration;
-            if (velocity < 0) velocity = 0;
-        } else if (velocity < 0) {
-            velocity += deceleration;
-            if (velocity > 0) velocity = 0;
-        }
-    }
+    // Integrate acceleration up to the target speed, then constant velocity.
+    const float target = moveForward ? maxSpeed : (moveBackward ? -maxSpeed * 0.5f : 0.0f);
+    const float rate = (moveForward || moveBackward) ? acceleration : deceleration;
+    const float sign = target >= velocity ? 1.0f : -1.0f;
+    const float rampTime = std::min(deltaTime, std::abs(target - velocity) / rate);
+    const float distance = velocity * rampTime + 0.5f * sign * rate * rampTime * rampTime
+                         + target * (deltaTime - rampTime);
+    velocity = rampTime < deltaTime ? target : velocity + sign * rate * rampTime;
 
-    // 3. moving player in dependence on velocity
-    if (velocity != 0) {
-        float moveStep = velocity;
-        float newX = x + std::cos(dir) * moveStep;
-        float newY = y + std::sin(dir) * moveStep;
-
-        // collision regards with direction of movement
-        float checkDir = (velocity > 0) ? dir : dir + M_PI;
-
-        float checkX = newX + std::cos(checkDir) * radius;
-        float checkY = newY + std::sin(checkDir) * radius;
-
-        // collision by x
-        if (!map.isWall((int)checkX, (int)y)) {
-            x = newX;
-        }
-        // collision by y
-        if (!map.isWall((int)x, (int)checkY)) {
-            y = newY;
-        }
+    // Small collision steps prevent crossing a wall during a long update.
+    const int steps = std::max(1, static_cast<int>(std::ceil(std::abs(distance) / (radius * 0.5f))));
+    const float stepX = std::cos(dir) * distance / steps;
+    const float stepY = std::sin(dir) * distance / steps;
+    for (int step = 0; step < steps; ++step) {
+        if (map.canOccupy(x + stepX, y, radius)) x += stepX;
+        if (map.canOccupy(x, y + stepY, radius)) y += stepY;
     }
 
     // damage timer update

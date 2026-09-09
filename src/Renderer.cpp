@@ -7,6 +7,38 @@
 #include <iostream>
 #include  <Game.h>
 #include <optional>
+#include "SDLWrappers.h"
+#include <utility>
+#include "FrameProjection.h"
+#include <cstring>
+
+namespace {
+SDLTexturePtr loadTexture(SDL_Renderer* renderer, const std::string& path, bool transparent) {
+    SDLSurfacePtr surface(SDL_LoadBMP(path.c_str()));
+    if (!surface) {
+        std::cerr << "Unable to load texture: " << path << " - " << SDL_GetError() << std::endl;
+        return {};
+    }
+    if (transparent && SDL_SetColorKey(surface.get(), SDL_TRUE,
+            SDL_MapRGB(surface->format, 255, 255, 255)) != 0) {
+        std::cerr << "Unable to set texture color key: " << path << " - " << SDL_GetError() << std::endl;
+        return {};
+    }
+    SDLTexturePtr texture(SDL_CreateTextureFromSurface(renderer, surface.get()));
+    if (!texture) {
+        std::cerr << "Unable to create texture: " << path << " - " << SDL_GetError() << std::endl;
+    }
+    return texture;
+}
+
+bool replaceTexture(SDL_Renderer* renderer, SDL_Texture*& target,
+                    const std::string& path, bool transparent) {
+    auto replacement = loadTexture(renderer, path, transparent);
+    if (!replacement) return false;
+    SDLTexturePtr previous(std::exchange(target, replacement.release()));
+    return true;
+}
+}
 
 //made to draw numbers on the screen for kill count without libs
 void Renderer::drawDigit(int x, int y, int digit, int r, int g, int b) {
@@ -63,54 +95,44 @@ void Renderer::drawNumber(int x, int y, int number, int r, int g, int b) {
     }
 }
 
-Renderer::Renderer(int w, int h, const char* title) {
-    width = w;
-    height = h;
-    floorTexture = nullptr;
-    ceilingTexture = nullptr;
-    gunTexture = nullptr;
-    //firing animation and dead enemy texture
-    gunFireTexture = nullptr;
-    deadEnemyTexture = nullptr;
-
-    textureWidth = 64;
-    textureHeight = 64;
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        std::cout << "SDL init error: " << SDL_GetError() << std::endl;
-        window = nullptr;
-        sdlRenderer = nullptr;
-        return;
+Renderer::Renderer(int w, int h, const char* title)
+    : window(nullptr), sdlRenderer(nullptr), width(w), height(h),
+      floorTexture(nullptr), ceilingTexture(nullptr), gunTexture(nullptr),
+      bobPhase(0.0f),
+      bobAmplitude(8.0f), bobFrequency(0.65f),
+      gunFireTexture(nullptr), deadEnemyTexture(nullptr) {
+    if (width <= 0 || height <= 0) {
+        throw InitializationException("Renderer dimensions must be positive");
     }
-
-    window = SDL_CreateWindow(title,
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        width, height, SDL_WINDOW_SHOWN);
-
-    if (window == nullptr) {
-        std::cout << "Window create error: " << SDL_GetError() << std::endl;
-        return;
-    }
-
-    sdlRenderer = SDL_CreateRenderer(window, -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-
-    if (sdlRenderer == nullptr) {
-        std::cout << "Renderer create error: " << SDL_GetError() << std::endl;
-        return;
-    }
-
-    // bobbing
-    bobPhase = 0.0f;
-    bobAmplitude = 8.0f;
-    bobFrequency = 1.3f;
-
     zBuffer.resize(width, 9999.0f);
     spriteZBuffer.resize(width, 9999.0f);
+    floorRays.resize(width);
+    if (SDL_InitSubSystem(SDL_INIT_VIDEO) < 0) {
+        throw InitializationException(std::string("SDL video: ") + SDL_GetError());
+    }
+    try {
+        SDLWindowPtr newWindow(SDL_CreateWindow(title,
+            SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+            width, height, SDL_WINDOW_SHOWN));
+        if (!newWindow) {
+            throw InitializationException(std::string("Window: ") + SDL_GetError());
+        }
+        SDLRendererPtr newRenderer(SDL_CreateRenderer(newWindow.get(), -1,
+            SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC));
+        if (!newRenderer) {
+            throw InitializationException(std::string("Renderer: ") + SDL_GetError());
+        }
+        window = newWindow.release();
+        sdlRenderer = newRenderer.release();
+    } catch (...) {
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+        throw;
+    }
 }
 
 Renderer::~Renderer() {
     for (auto& pair : wallTextures) {
-        SDL_DestroyTexture(pair.second);
+        SDL_DestroyTexture(pair.second.texture);
     }
     if (floorTexture) SDL_DestroyTexture(floorTexture);
     if (ceilingTexture) SDL_DestroyTexture(ceilingTexture);
@@ -128,7 +150,7 @@ Renderer::~Renderer() {
 
     if (sdlRenderer) SDL_DestroyRenderer(sdlRenderer);
     if (window) SDL_DestroyWindow(window);
-    SDL_Quit();
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
 void Renderer::clear() {
@@ -153,118 +175,85 @@ SDL_Renderer* Renderer::getSDLRenderer() {
 }
 
 std::optional<bool> Renderer::loadWallTexture(int id, const std::string& path) {
-    SDL_Surface* surface = SDL_LoadBMP(path.c_str());
-    if (surface == nullptr) {
-        throw ResourceLoadException("Wall texture: " + path + " - " + SDL_GetError());
+    auto texture = loadTexture(sdlRenderer, path, true);
+    if (!texture) throw ResourceLoadException("Wall texture: " + path);
+    int texW = 0, texH = 0;
+    if (SDL_QueryTexture(texture.get(), nullptr, nullptr, &texW, &texH) != 0) {
+        throw ResourceLoadException("Wall texture dimensions: " + path);
     }
-
-    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
-    SDL_FreeSurface(surface);
-
-    if (texture == nullptr) {
-        throw ResourceLoadException("Failed to create wall texture: " + path);
-    }
-
-    wallTextures[id] = texture;
-
-    if (wallTextures.size() == 1) {
-        SDL_QueryTexture(texture, nullptr, nullptr, &textureWidth, &textureHeight);
-    }
+    auto& target = wallTextures[id];
+    SDLTexturePtr previous(std::exchange(target.texture, texture.release()));
+    target.width = texW;
+    target.height = texH;
     return true;
 }
 
-std::optional<bool> Renderer::loadFloorTexture(const std::string &path) {
-    SDL_Surface* surface = SDL_LoadBMP(path.c_str());
-    if (surface == nullptr) {
-        std::cout << "Unable to load floor texture: " << path << std::endl;
+std::optional<bool> Renderer::loadFloorTexture(const std::string& path) {
+    SDLSurfacePtr source(SDL_LoadBMP(path.c_str()));
+    if (!source) {
+        std::cerr << "Unable to load floor: " << path << " - " << SDL_GetError() << std::endl;
         return false;
     }
-
-    floorTexture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
-    SDL_FreeSurface(surface);
-    return floorTexture != nullptr;
-}
-
-std::optional<bool> Renderer::loadCeilingTexture(const std::string &path) {
-    SDL_Surface* surface = SDL_LoadBMP(path.c_str());
-    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
-    if (surface == nullptr) {
-        std::cout << "Unable to load ceiling texture: " << path << std::endl;
+    SDLSurfacePtr converted(SDL_ConvertSurfaceFormat(source.get(), SDL_PIXELFORMAT_ARGB8888, 0));
+    if (!converted || converted->w <= 0 || converted->h <= 0) {
+        std::cerr << "Unable to convert floor: " << path << " - " << SDL_GetError() << std::endl;
         return false;
     }
-
-    ceilingTexture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
-    SDL_FreeSurface(surface);
-    return ceilingTexture != nullptr;
-}
-
-std::optional<bool> Renderer::loadGunTexture(const std::string &path) {
-    SDL_Surface* surface = SDL_LoadBMP(path.c_str());
-    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
-    if (surface == nullptr) {
-        std::cout << "Unable to load gun texture: " << path << std::endl;
+    std::vector<Uint32> pixels(static_cast<size_t>(converted->w) * converted->h);
+    if (SDL_LockSurface(converted.get()) != 0) {
+        std::cerr << "Unable to read floor: " << SDL_GetError() << std::endl;
         return false;
     }
+    for (int y = 0; y < converted->h; ++y) {
+        const auto* row = static_cast<const Uint8*>(converted->pixels) + static_cast<size_t>(y) * converted->pitch;
+        std::memcpy(pixels.data() + static_cast<size_t>(y) * converted->w,
+                    row, static_cast<size_t>(converted->w) * sizeof(Uint32));
+    }
+    SDL_UnlockSurface(converted.get());
+    for (auto& pixel : pixels) pixel |= 0xff000000u; // The floor is opaque.
 
-    gunTexture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
-    SDL_FreeSurface(surface);
-    return gunTexture != nullptr;
+    SDLTexturePtr frame(SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_ARGB8888,
+                                          SDL_TEXTUREACCESS_STREAMING, width, height));
+    if (!frame || SDL_SetTextureBlendMode(frame.get(), SDL_BLENDMODE_NONE) != 0) {
+        std::cerr << "Unable to create floor frame: " << SDL_GetError() << std::endl;
+        return false;
+    }
+    // Commit only after both the CPU texture and streaming frame are ready.
+    SDLTexturePtr previous(std::exchange(floorTexture, frame.release()));
+    floorPixels.swap(pixels);
+    floorWidth = converted->w;
+    floorHeight = converted->h;
+    return true;
 }
 
-//******LOAD FIRING ANIMATION TEXTURE***
+std::optional<bool> Renderer::loadCeilingTexture(const std::string& path) {
+    return replaceTexture(sdlRenderer, ceilingTexture, path, true);
+}
+
+std::optional<bool> Renderer::loadGunTexture(const std::string& path) {
+    return replaceTexture(sdlRenderer, gunTexture, path, true);
+}
+
 bool Renderer::loadGunFireTexture(const std::string& path) {
-    SDL_Surface* surface = SDL_LoadBMP(path.c_str());
-    if (surface == nullptr) {
-        std::cout << "Unable to load gun_fire texture: " << path << std::endl;
-        return false;
-    }
-    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
-    gunFireTexture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
-    SDL_FreeSurface(surface);
-    return gunFireTexture != nullptr;
+    return replaceTexture(sdlRenderer, gunFireTexture, path, true);
 }
 
-//******LOAD DEAD ENEMY TEXTURE*****
 bool Renderer::loadDeadEnemyTexture(const std::string& path) {
-    SDL_Surface* surface = SDL_LoadBMP(path.c_str());
-    if (surface == nullptr) {
-        std::cout << "Unable to load dead_enemy texture: " << path << std::endl;
-        return false;
-    }
-    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
-    deadEnemyTexture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
-    SDL_FreeSurface(surface);
-    return deadEnemyTexture != nullptr;
+    return replaceTexture(sdlRenderer, deadEnemyTexture, path, true);
 }
 
-std::optional<bool> Renderer::loadEnemyTexture(EnemyType type, const std::string &path) {
-    SDL_Surface* surface = SDL_LoadBMP(path.c_str());
-    if (surface == nullptr) {
-        std::cout << "Unable to load enemy texture: " << path << " Error: " << SDL_GetError() << std::endl;
-        return false;
-    }
-    SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 255, 255));
-
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(sdlRenderer, surface);
+std::optional<bool> Renderer::loadEnemyTexture(EnemyType type, const std::string& path) {
+    auto texture = loadTexture(sdlRenderer, path, true);
+    if (!texture) return false;
     int texW = 0, texH = 0;
-    if (SDL_QueryTexture(texture, nullptr, nullptr, &texW, &texH) != 0) {
-        std::cout << "Unable to query texture size: " << SDL_GetError() << std::endl;
-        SDL_FreeSurface(surface);
-        SDL_DestroyTexture(texture);
+    if (SDL_QueryTexture(texture.get(), nullptr, nullptr, &texW, &texH) != 0) {
+        std::cerr << "Unable to query texture size: " << SDL_GetError() << std::endl;
         return false;
     }
-
-    SDL_FreeSurface(surface);
-
-    if (texture == nullptr) {
-        std::cout << "Unable to create texture: " << SDL_GetError() << std::endl;
-        return false;
-    }
-
-    enemyTextures[type] = TextureInfo(texture, texW, texH);
-
-    std::cout << "Loaded enemy texture: " << path << " (" << texW << "x" << texH << ")" << std::endl;
+    auto& target = enemyTextures[type];
+    SDLTexturePtr previous(std::exchange(target.texture, texture.release()));
+    target.width = texW;
+    target.height = texH;
     return true;
 }
 
@@ -288,6 +277,54 @@ void Renderer::drawVerticalLine(int x, int yStart, int yEnd, int r, int g, int b
     SDL_RenderDrawLine(sdlRenderer, x, yStart, x, yEnd);
 }
 
+void Renderer::renderFloor(const Player& player, const Map& map, const FrameProjection& projection) {
+    const int firstRow = std::clamp(projection.horizon(), 0, height);
+    if (firstRow == height) return;
+    const SDL_Rect area{0, firstRow, width, height - firstRow};
+    if (!floorTexture) {
+        SDL_SetRenderDrawColor(sdlRenderer, 100, 100, 100, 255);
+        SDL_RenderFillRect(sdlRenderer, &area);
+        return;
+    }
+
+    float angle = projection.firstRayAngle();
+    for (auto& ray : floorRays) {
+        ray = projection.floorRay(angle);
+        angle += projection.angleStep();
+    }
+    void* pixels = nullptr;
+    int pitch = 0;
+    if (SDL_LockTexture(floorTexture, &area, &pixels, &pitch) != 0) {
+        throw ResourceLoadException(std::string("Floor frame lock: ") + SDL_GetError());
+    }
+    constexpr Uint32 fallback = 0xff646464u;
+    constexpr float maxDepth = 30.0f;
+    for (int y = firstRow; y < height; ++y) {
+        auto* row = reinterpret_cast<Uint32*>(static_cast<Uint8*>(pixels) +
+                    static_cast<size_t>(y - firstRow) * pitch);
+        std::fill_n(row, width, fallback);
+        const auto depth = projection.floorDepth(y + 0.5f);
+        if (!depth || *depth > maxDepth) continue;
+        for (int x = 0; x < width; ++x) {
+            const auto& ray = floorRays[x];
+            if (!ray) continue;
+            const double worldX = player.getX() + *depth * ray->x;
+            const double worldY = player.getY() + *depth * ray->y;
+            // Check bounds before converting coordinates to integer texture indices.
+            if (!std::isfinite(worldX) || !std::isfinite(worldY) ||
+                worldX < 0 || worldY < 0 || worldX >= map.getWidth() || worldY >= map.getHeight()) continue;
+            const auto tx = FrameProjection::textureCoordinate(static_cast<float>(worldX), floorWidth);
+            const auto ty = FrameProjection::textureCoordinate(static_cast<float>(worldY), floorHeight);
+            if (tx && ty) row[x] = floorPixels[static_cast<size_t>(*ty) * floorWidth + *tx];
+        }
+    }
+    SDL_UnlockTexture(floorTexture);
+    // Only the initialized region is copied; the ceiling remains untouched.
+    if (SDL_RenderCopy(sdlRenderer, floorTexture, &area, &area) != 0) {
+        throw ResourceLoadException(std::string("Floor frame copy: ") + SDL_GetError());
+    }
+}
+
 void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
     // clean up
     SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
@@ -295,7 +332,7 @@ void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
 
     // calc bobbing
     if (player.isMoving()) {
-        bobPhase += player.getVelocity() * bobFrequency;
+        bobPhase += player.getVelocity() * bobFrequency * deltaTime;
         bobPhase = std::fmod(bobPhase, 2.0f * M_PI);
     } else {
         float decay = std::exp(-3.0f * deltaTime);
@@ -309,9 +346,8 @@ void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
 
     // bobbing offset
     float bobOffset = std::sin(bobPhase) * bobAmplitude;
-
-    int halfHeight = height / 2;
-    int bobMargin = (int)bobAmplitude + 5;
+    const FrameProjection projection(width, height, player.getDir(), player.getFov(),
+                                     static_cast<int>(bobOffset));
     // rendering roof
     if (ceilingTexture) {
         SDL_Rect ceilingRect = {0, (int)bobOffset - 30, width, height / 2 + 30};
@@ -322,21 +358,12 @@ void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
         SDL_RenderFillRect(sdlRenderer, &ceilingRect);
     }
 
-    // rendering floor
-    if (floorTexture) {
-        SDL_Rect floorRect = {0, height / 2 + (int)bobOffset, width, height / 2 + 30};
-        SDL_RenderCopy(sdlRenderer, floorTexture, nullptr, &floorRect);
-    } else {
-        SDL_SetRenderDrawColor(sdlRenderer, 100, 100, 100, 255);
-        SDL_Rect floorRect = {0, height / 2 + (int)bobOffset, width, height / 2};
-        SDL_RenderFillRect(sdlRenderer, &floorRect);
-    }
+    renderFloor(player, map, projection);
 
     // rays parametrs
-    float fov = player.getFov();
-    int numRays = width;
-    float angleStep = fov / numRays;
-    float currentAngle = player.getDir() - fov / 2.0f;
+    int numRays = projection.width();
+    float angleStep = projection.angleStep();
+    float currentAngle = projection.firstRayAngle();
 
     for (int i = 0; i < numRays; i++) {
         float rayDirX = cos(currentAngle);
@@ -384,10 +411,10 @@ void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
             continue;
         }
 
-        float correctedDistance = distanceToWall * cos(currentAngle - player.getDir());
+        float correctedDistance = projection.perpendicularDepth(distanceToWall, currentAngle);
         zBuffer[i] = correctedDistance;
 
-        int wallHeight = (int)(height / correctedDistance);
+        int wallHeight = static_cast<int>(projection.wallHeight(correctedDistance));
 
         // calc of coords of the wall
         float wallX;
@@ -403,29 +430,25 @@ void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
             wallX = 1.0f - wallX;
         }
 
-        int texX = (int)(wallX * textureWidth);
-        if (texX >= textureWidth) texX = textureWidth - 1;
-        if (texX < 0) texX = 0;
-
         // type of wall
         int tileType = map.getTile(wallTileX, wallTileY);
-        SDL_Texture* currentWallTexture = nullptr;
+        const TextureInfo* currentWallTexture = nullptr;
 
         if (wallTextures.find(tileType) != wallTextures.end()) {
-            currentWallTexture = wallTextures[tileType];
+            currentWallTexture = &wallTextures.at(tileType);
         } else if (!wallTextures.empty()) {
-            currentWallTexture = wallTextures.begin()->second;
+            currentWallTexture = &wallTextures.begin()->second;
         }
 
-        int yStart = (height / 2) - (wallHeight / 2) + (int)bobOffset;
-        int yEnd = (height / 2) + (wallHeight / 2) + (int)bobOffset;
+        int yStart = projection.horizon() - (wallHeight / 2);
+        int yEnd = projection.horizon() + (wallHeight / 2);
 
         if (currentWallTexture) {
             SDL_Rect srcRect;
-            srcRect.x = texX;
+            srcRect.x = std::clamp(static_cast<int>(wallX * currentWallTexture->width), 0, currentWallTexture->width - 1);
             srcRect.y = 0;
             srcRect.w = 1;
-            srcRect.h = textureHeight;
+            srcRect.h = currentWallTexture->height;
 
             SDL_Rect destRect;
             destRect.x = i;
@@ -433,7 +456,7 @@ void Renderer::render3D(const Player& player, const Map& map, float deltaTime) {
             destRect.w = 1;
             destRect.h = wallHeight;
 
-            SDL_RenderCopy(sdlRenderer, currentWallTexture, &srcRect, &destRect);
+            SDL_RenderCopy(sdlRenderer, currentWallTexture->texture, &srcRect, &destRect);
         } else {
             int colorVal = 255 - (int)(correctedDistance * 10);
             if (colorVal < 0) colorVal = 0;
@@ -467,191 +490,83 @@ void Renderer::renderGun(const Player& player) {
     SDL_RenderCopy(sdlRenderer, currentGunTex, nullptr, &destRect);
 }
 
+std::optional<Renderer::SpriteProjection> Renderer::projectSprite(
+    float worldX, float worldY, const Player& player, float worldHeight, float aspect, float maxDistance) const {
+    const float dx = worldX - player.getX(), dy = worldY - player.getY();
+    const float distance = std::hypot(dx, dy);
+    if (!std::isfinite(distance) || distance > maxDistance || distance < 0.1f) return std::nullopt;
+    const float angle = std::atan2(dy, dx);
+    const FrameProjection projection(width, height, player.getDir(), player.getFov(),
+        static_cast<int>(std::sin(bobPhase) * bobAmplitude));
+    const float depth = projection.perpendicularDepth(distance, angle);
+    if (depth < 0.1f) return std::nullopt;
+    const float relativeAngle = std::remainder(angle - player.getDir(), 2.0f * static_cast<float>(M_PI));
+    const float unitHeight = projection.wallHeight(depth);
+    const int spriteHeight = std::max(1, static_cast<int>(unitHeight * worldHeight));
+    const int spriteWidth = std::max(1, static_cast<int>(spriteHeight * aspect));
+    const int centre = static_cast<int>((relativeAngle + player.getFov() / 2) / player.getFov() * width);
+    const int bottom = static_cast<int>(projection.horizon() + unitHeight * FrameProjection::cameraHeight);
+    const SDL_Rect rect{centre - spriteWidth / 2, bottom - spriteHeight, spriteWidth, spriteHeight};
+    if (rect.x >= width || rect.x + rect.w <= 0 || rect.y >= height || rect.y + rect.h <= 0) return std::nullopt;
+    return SpriteProjection{rect, depth};
+}
+
+void Renderer::drawSpriteColumns(SDL_Texture* texture, int texWidth, int texHeight,
+                                  const SpriteProjection& sprite) {
+    const auto& rect = sprite.rect;
+    for (int stripe = std::max(0, rect.x); stripe < std::min(width, rect.x + rect.w); ++stripe) {
+        if (zBuffer[stripe] < sprite.depth || spriteZBuffer[stripe] < sprite.depth) continue;
+        const float u = static_cast<float>(stripe - rect.x) / rect.w;
+        const int texX = std::clamp(static_cast<int>(u * texWidth), 0, texWidth - 1);
+        const SDL_Rect src{texX, 0, 1, texHeight};
+        const SDL_Rect dst{stripe, rect.y, 1, rect.h};
+        SDL_RenderCopy(sdlRenderer, texture, &src, &dst);
+        spriteZBuffer[stripe] = sprite.depth;
+    }
+}
+
 void Renderer::drawEnemySprite(const Enemy& enemy, const Player& player) {
-    //only render alive enemies
     if (!enemy.isAlive()) return;
-
-    const TextureInfo* texInfo = getEnemyTextureInfo(enemy.getType());
-    if (!texInfo || !texInfo->texture) return;
-
-    //calc vector to the enemy
-    float dx = enemy.getX() - player.getX();
-    float dy = enemy.getY() - player.getY();
-    float distance = std::sqrt(dx * dx + dy * dy);
-
-    if (distance < 0.3f || distance > 25.0f) return;
-
-    //angle to enemy
-    float angleToEnemy = std::atan2(dy, dx);
-    float relativeAngle = angleToEnemy - player.getDir();
-    while (relativeAngle > M_PI) relativeAngle -= 2.0f * M_PI;
-    while (relativeAngle < -M_PI) relativeAngle += 2.0f * M_PI;
-
-    // is enemy in fov
-    float fov = player.getFov();
-    if (std::abs(relativeAngle) > fov / 2.0f) return;
-
-    // size of sprite
-    float spriteScale = 0.8f;
-    int spriteHeight = static_cast<int>((height / distance) * spriteScale);
-
-    // saving original size
-    float aspectRatio = static_cast<float>(texInfo->width) / static_cast<float>(texInfo->height);
-    int spriteWidth = static_cast<int>(spriteHeight * aspectRatio);
-
-    if (spriteHeight < 20) spriteHeight = 20;
-    if (spriteWidth < 20) spriteWidth = 20;
-    if (spriteHeight > 500) spriteHeight = 500;
-
-    // calc position
-    int screenX = static_cast<int>((relativeAngle + fov / 2.0f) / fov * width);
-
-    // bobbing offset
-    int bobOffset = static_cast<int>(std::sin(bobPhase) * bobAmplitude);
-
-    int spriteX = screenX - spriteWidth / 2;
-    int spriteY = height / 2 - spriteHeight / 2 + bobOffset;
-
-    // rendering
-    for (int stripe = spriteX; stripe < spriteX + spriteWidth; stripe++) {
-        if (stripe < 0 || stripe >= width) continue;
-
-        // the wall?
-        if (zBuffer[stripe] < distance) {
-            continue;
-        }
-        // the other enemy?
-        if (spriteZBuffer[stripe] < distance) {
-            continue;
-        }
-
-        // coords in original texture
-        float texCoord = static_cast<float>(stripe - spriteX) / static_cast<float>(spriteWidth);
-        int texX = static_cast<int>(texCoord * texInfo->width);
-
-        if (texX < 0) texX = 0;
-        if (texX >= texInfo->width) texX = texInfo->width - 1;
-
-        SDL_Rect srcRect = {texX, 0, 1, texInfo->height};
-        SDL_Rect dstRect = {stripe, spriteY, 1, spriteHeight};
-
-        SDL_RenderCopy(sdlRenderer, texInfo->texture, &srcRect, &dstRect);
-
-        // update sprite buffer
-        spriteZBuffer[stripe] = distance;
-    }
+    const auto* info = getEnemyTextureInfo(enemy.getType());
+    if (!info || !info->texture || info->width <= 0 || info->height <= 0) return;
+    const auto sprite = projectSprite(enemy.getX(), enemy.getY(), player, 0.8f,
+                                      static_cast<float>(info->width) / info->height, 25.0f);
+    if (sprite) drawSpriteColumns(info->texture, info->width, info->height, *sprite);
 }
 
-//*******RENDER OF DEAD ENEMY*****
 void Renderer::drawDeadEnemySprite(const Enemy& enemy, const Player& player) {
-    if (enemy.isAlive()) return;
-    if (enemy.getDeathTimer() <= 0.0f) return;
-    if (!deadEnemyTexture) return;
-
-    float dx = enemy.getX() - player.getX();
-    float dy = enemy.getY() - player.getY();
-    float distance = std::sqrt(dx * dx + dy * dy);
-
-    if (distance < 0.1f || distance > 30.0f) return;
-
-    float angleToEnemy = std::atan2(dy, dx);
-    float relativeAngle = angleToEnemy - player.getDir();
-    while (relativeAngle > M_PI) relativeAngle -= 2.0f * M_PI;
-    while (relativeAngle < -M_PI) relativeAngle += 2.0f * M_PI;
-
-    float fov = player.getFov();
-    if (std::abs(relativeAngle) > fov / 2.0f + 0.3f) return;
-
-    float screenX = (relativeAngle + fov / 2.0f) / fov * width;
-    int spriteSize = static_cast<int>(500 / distance);
-    if (spriteSize < 12) spriteSize = 12;
-    if (spriteSize > 200) spriteSize = 200;
-
-    //texture dimensions getr
-    int texW = 0, texH = 0;
-    SDL_QueryTexture(deadEnemyTexture, nullptr, nullptr, &texW, &texH);
-
-    //dead enemy 2 times lower that original
-    int spriteWidth = spriteSize;
-    int spriteHeight = spriteSize / 2;
-
-    //bobbing offset
-    int bobOffset = static_cast<int>(std::sin(bobPhase) * bobAmplitude);
-
-    int spriteX = static_cast<int>(screenX - spriteWidth / 2);
-    int spriteY = height / 2 - spriteHeight / 2 + bobOffset;
-
-    for (int stripe = spriteX; stripe < spriteX + spriteWidth; stripe++) {
-        if (stripe < 0 || stripe >= width) continue;
-        //wall occlusion
-        if (zBuffer[stripe] < distance) continue;
-        //other sprite occlusion
-        if (spriteZBuffer[stripe] < distance) continue;
-
-        //texture coordinate for this stripe
-        float texCoord = static_cast<float>(stripe - spriteX) / static_cast<float>(spriteWidth);
-        int texX = static_cast<int>(texCoord * texW);
-        if (texX < 0) texX = 0;
-        if (texX >= texW) texX = texW - 1;
-
-        SDL_Rect srcRect = {texX, 0, 1, texH};
-        SDL_Rect dstRect = {stripe, spriteY, 1, spriteHeight};
-
-        SDL_RenderCopy(sdlRenderer, deadEnemyTexture, &srcRect, &dstRect);
-
-        //update sprite for this column
-        spriteZBuffer[stripe] = distance;
-    }
+    if (enemy.isAlive() || enemy.getDeathTimer() <= 0.0f || !deadEnemyTexture) return;
+    int texWidth = 0, texHeight = 0;
+    if (SDL_QueryTexture(deadEnemyTexture, nullptr, nullptr, &texWidth, &texHeight) != 0 ||
+        texWidth <= 0 || texHeight <= 0) return;
+    // A flattened billboard, 0.8 cells wide and 0.2 cells high, resting on the floor.
+    const auto sprite = projectSprite(enemy.getX(), enemy.getY(), player, 0.2f, 4.0f, 30.0f);
+    if (sprite) drawSpriteColumns(deadEnemyTexture, texWidth, texHeight, *sprite);
 }
 
-//*****ENEMY HP BAR*****
 void Renderer::drawEnemyHPBar(float worldX, float worldY, int currentHP, int maxHP,
                               const Player& player, SDL_Color /*barColor*/) {
-    float dx = worldX - player.getX();
-    float dy = worldY - player.getY();
-    float distance = std::sqrt(dx * dx + dy * dy);
-
-    if (distance < 0.5f || distance > 15.0f) return;
-
-    float angleToEnemy = std::atan2(dy, dx);
-    float relativeAngle = angleToEnemy - player.getDir();
-
-    while (relativeAngle > M_PI) relativeAngle -= 2.0f * M_PI;
-    while (relativeAngle < -M_PI) relativeAngle += 2.0f * M_PI;
-
-    float fov = player.getFov();
-    if (std::abs(relativeAngle) > fov / 2.0f + 0.2f) return;
-
-    float screenX = (relativeAngle + fov / 2.0f) / fov * width;
-    int spriteSize = static_cast<int>(600 / distance);
-
-    int barWidth = std::max(30, static_cast<int>(spriteSize * 0.8f));
-    int barHeight = 6;
-    int barX = static_cast<int>(screenX - barWidth / 2);
-
-    //bobbing offset
-    int bobOffset = static_cast<int>(std::sin(bobPhase) * bobAmplitude);
-    int barY = height / 2 - spriteSize / 2 - barHeight - 10 + bobOffset;  // + bobOffset
-
-    SDL_SetRenderDrawColor(sdlRenderer, 30, 30, 30, 200);
-    SDL_Rect bgRect = {barX - 1, barY - 1, barWidth + 2, barHeight + 2};
-    SDL_RenderFillRect(sdlRenderer, &bgRect);
-
-    float hpRatio = static_cast<float>(currentHP) / maxHP;
-    if (hpRatio < 0.0f) hpRatio = 0.0f;
-    if (hpRatio > 1.0f) hpRatio = 1.0f;
-    Uint8 r = 255;
-    Uint8 g = static_cast<Uint8>(200 * hpRatio);
-    Uint8 b = 0;
-
-    int fillWidth = static_cast<int>(barWidth * hpRatio);
-
-    SDL_SetRenderDrawColor(sdlRenderer, r, g, b, 255);
-    SDL_Rect fillRect = {barX, barY, fillWidth, barHeight};
-    SDL_RenderFillRect(sdlRenderer, &fillRect);
-
-    SDL_SetRenderDrawColor(sdlRenderer, 255, 255, 255, 255);
-    SDL_RenderDrawRect(sdlRenderer, &bgRect);
+    if (maxHP <= 0) return;
+    const auto sprite = projectSprite(worldX, worldY, player, 0.8f, 1.0f, 15.0f);
+    if (!sprite) return;
+    const int barWidth = std::max(12, static_cast<int>(sprite->rect.h * 0.8f));
+    const int barHeight = 6;
+    const int centre = sprite->rect.x + sprite->rect.w / 2;
+    const int barX = centre - barWidth / 2;
+    const int barY = sprite->rect.y - barHeight - 10;
+    const float hpRatio = std::clamp(static_cast<float>(currentHP) / maxHP, 0.0f, 1.0f);
+    const int fillWidth = static_cast<int>(barWidth * hpRatio);
+    // Called after every sprite: only columns belonging to this visible enemy
+    // may receive its HP bar. A hidden enemy cannot reveal itself through a wall.
+    for (int x = std::max(0, barX); x < std::min(width, barX + barWidth); ++x) {
+        if (zBuffer[x] < sprite->depth || std::abs(spriteZBuffer[x] - sprite->depth) > 0.0001f) continue;
+        SDL_SetRenderDrawColor(sdlRenderer, 255, 255, 255, 255);
+        SDL_RenderDrawPoint(sdlRenderer, x, barY - 1);
+        SDL_RenderDrawPoint(sdlRenderer, x, barY + barHeight);
+        if (x - barX < fillWidth) SDL_SetRenderDrawColor(sdlRenderer, 255, static_cast<Uint8>(200 * hpRatio), 0, 255);
+        else SDL_SetRenderDrawColor(sdlRenderer, 30, 30, 30, 255);
+        SDL_RenderDrawLine(sdlRenderer, x, barY, x, barY + barHeight - 1);
+    }
 }
 
 //******PLAYER HEALTH****
@@ -690,7 +605,7 @@ void Renderer::renderHUD(const Player& player) {
         SDL_SetRenderDrawColor(sdlRenderer, 255, 200, 0, 255);
         for (int i = 0; i < 16; i++) {
             float angle = i * M_PI / 8;
-            int dist = 20 + rand() % 5;
+            int dist = 20 + effectRandom() % 5;
             int px = cx + static_cast<int>(cos(angle) * dist);
             int py = cy + static_cast<int>(sin(angle) * dist);
             SDL_Rect spike = {px - 2, py - 2, 4, 4};
@@ -706,9 +621,12 @@ float Renderer::calculateBobOffset(const Player& player, float deltaTime) {
 
 void Renderer::renderDamageOverlay(float alpha) {
     if (!sdlRenderer) return;
-    alpha = 0.2;
+    if (!std::isfinite(alpha) || alpha <= 0.0f) return;
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
     Uint8 alphaValue = static_cast<Uint8>(alpha * 255.0f);
     // switch on blendering colors
+    SDL_BlendMode previousBlend;
+    SDL_GetRenderDrawBlendMode(sdlRenderer, &previousBlend);
     SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_BLEND);
     // save current render color
     Uint8 r, g, b, a;
@@ -721,8 +639,7 @@ void Renderer::renderDamageOverlay(float alpha) {
 
     // recover original color
     SDL_SetRenderDrawColor(sdlRenderer, r, g, b, a);
-    // switch off blendering colors
-    SDL_SetRenderDrawBlendMode(sdlRenderer, SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawBlendMode(sdlRenderer, previousBlend);
 }
 //check commit
 

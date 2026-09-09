@@ -369,61 +369,162 @@ TEST(testWeaponDamageParams) {
 }
 
 
-//*****SOME RENDER TESTS****
-//Check render init
+// Renderer construction must succeed; an unavailable video backend is a failure.
 TEST(testRendererInit) {
-    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
-        Renderer renderer(800, 600, "Test");
-        ASS_TRUE(renderer.isRunning() || !renderer.isRunning());
-        SDL_Quit();
-    }
+    Renderer renderer(800, 600, "Test");
+    ASS_TRUE(renderer.isRunning());
+    ASS_TRUE(renderer.getSDLRenderer() != nullptr);
 }
-//Check render buffer
+
 TEST(testRendererZBuffer) {
-    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
-        Renderer renderer(800, 600, "Test");
-        renderer.resetSpriteZBuffer();
-        SDL_Quit();
+    Renderer renderer(800, 600, "Test");
+    Map map;
+    Player player(1.5f, 1.5f);
+    renderer.resetSpriteZBuffer();
+    SDL_ClearError();
+    renderer.render3D(player, map, 0.016f);
+    ASS_TRUE(std::string(SDL_GetError()).empty());
+}
+
+TEST(testRendererInvalidSize) {
+    for (auto size : {std::pair{0, 600}, std::pair{800, -1}}) {
+        bool rejected = false;
+        try { Renderer renderer(size.first, size.second, "Invalid"); }
+        catch (const InitializationException&) { rejected = true; }
+        ASS_TRUE(rejected);
     }
 }
 
+TEST(testTextureLoadErrors) {
+    Renderer renderer(800, 600, "Texture errors");
+    // README is an existing non-BMP file; the other path does not exist.
+    for (const auto* path : {"assets/textures/__missing_audit_test__.bmp", "README.md"}) {
+        ASS_FALSE(renderer.loadFloorTexture(path).value_or(false));
+        ASS_FALSE(renderer.loadCeilingTexture(path).value_or(false));
+        ASS_FALSE(renderer.loadGunTexture(path).value_or(false));
+        ASS_FALSE(renderer.loadGunFireTexture(path));
+        ASS_FALSE(renderer.loadDeadEnemyTexture(path));
+        ASS_FALSE(renderer.loadEnemyTexture(EnemyType::Melee, path).value_or(false));
+        bool rejected = false;
+        try { renderer.loadWallTexture(1, path); }
+        catch (const ResourceLoadException&) { rejected = true; }
+        ASS_TRUE(rejected);
+    }
+}
 
-//******GAME TESTS****
-//Check game init
+TEST(testTextureReplacement) {
+    Renderer renderer(800, 600, "Texture replacement");
+    Player player(1.5f, 1.5f);
+    Map map;
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        ASS_TRUE(renderer.loadWallTexture(1, "assets/textures/wall0.bmp").value_or(false));
+        ASS_TRUE(renderer.loadFloorTexture("assets/textures/floor0.bmp").value_or(false));
+        ASS_TRUE(renderer.loadCeilingTexture("assets/textures/roof0.bmp").value_or(false));
+        ASS_TRUE(renderer.loadGunTexture("assets/textures/gun.bmp").value_or(false));
+        ASS_TRUE(renderer.loadGunFireTexture("assets/textures/gun_fire.bmp"));
+        ASS_TRUE(renderer.loadDeadEnemyTexture("assets/textures/dead_enemy.bmp"));
+        ASS_TRUE(renderer.loadEnemyTexture(EnemyType::Melee, "assets/textures/enemy_melee.bmp").value_or(false));
+    }
+    auto capture = [&]() {
+        renderer.render3D(player, map, 0.0f);
+        renderer.renderGun(player);
+        std::vector<Uint32> pixels(800 * 600);
+        ASS_EQ(SDL_RenderReadPixels(renderer.getSDLRenderer(), nullptr,
+            SDL_PIXELFORMAT_ARGB8888, pixels.data(), 800 * sizeof(Uint32)), 0);
+        return pixels;
+    };
+    const auto before = capture();
+    ASS_FALSE(renderer.loadFloorTexture("README.md").value_or(false));
+    ASS_FALSE(renderer.loadCeilingTexture("README.md").value_or(false));
+    ASS_FALSE(renderer.loadGunTexture("README.md").value_or(false));
+    bool rejected = false;
+    try { renderer.loadWallTexture(1, "README.md"); }
+    catch (const ResourceLoadException&) { rejected = true; }
+    ASS_TRUE(rejected);
+    ASS_TRUE(capture() == before);
+
+    const auto* info = renderer.getEnemyTextureInfo(EnemyType::Melee);
+    ASS_TRUE(info != nullptr);
+    auto* previous = info->texture;
+    ASS_FALSE(renderer.loadEnemyTexture(EnemyType::Melee, "README.md").value_or(false));
+    ASS_TRUE(renderer.getEnemyTextureInfo(EnemyType::Melee)->texture == previous);
+    int width = 0, height = 0;
+    ASS_EQ(SDL_QueryTexture(previous, nullptr, nullptr, &width, &height), 0);
+    ASS_TRUE(width > 0 && height > 0);
+}
+
+TEST(testRendererIndependentLifetime) {
+    Renderer first(320, 240, "First");
+    {
+        Renderer second(320, 240, "Second");
+        ASS_TRUE(second.isRunning());
+    }
+    SDL_ClearError();
+    ASS_EQ(SDL_RenderClear(first.getSDLRenderer()), 0);
+    ASS_TRUE(first.isRunning());
+}
+
+// Integration smoke tests: initialization and rendering must not fail.
 TEST(testGameInit) {
-    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
-        Game game;
-        game.init();
-        ASS_TRUE(true);
-        SDL_Quit();
-    }
+    Game game;
+    game.init();
+    SDL_ClearError();
+    game.render(0.0f);
+    ASS_TRUE(std::string(SDL_GetError()).empty());
 }
 
-//Check enemy spawn
 TEST(testGameEnemySpawn) {
-    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
-        Game game;
-        game.init();
-        size_t initialCount = 3;
-        ASS_TRUE(true);
-        SDL_Quit();
-    }
+    Game game;
+    game.init();
+    game.spawnEnemies();
+    SDL_Event start{};
+    start.type = SDL_KEYDOWN;
+    start.key.keysym.sym = SDLK_RETURN;
+    ASS_EQ(SDL_PushEvent(&start), 1);
+    game.update(0.016f);
+    SDL_ClearError();
+    game.render(0.016f);
+    ASS_TRUE(std::string(SDL_GetError()).empty());
 }
 
-//Check update loop
 TEST(testGameUpdateLoop) {
-    if (SDL_Init(SDL_INIT_VIDEO) == 0) {
-        Game game;
-        game.init();
-        float playerStartX = 1.5f;
-        game.update(0.016f);
-        ASS_TRUE(true);
-        SDL_Quit();
-    }
+    Game game;
+    game.init();
+    // Reinitialization exercises texture replacement and menu ownership.
+    game.init();
+    game.update(0.016f);
+    SDL_ClearError();
+    game.render(0.016f);
+    ASS_TRUE(std::string(SDL_GetError()).empty());
 }
 
 //*****OUTPUT AND WORK OF THE TESTS******
-int main() {
+int runFloorRenderingTests();
+int runSpriteRenderingTests();
+int runSimulationTests();
+int runEffectsTests();
+int runWallTextureTests();
+
+int main(int argc, char* argv[]) {
+    if (argc == 2) {
+        const std::string mode = argv[1];
+        if (mode == "--floor-tests") return runFloorRenderingTests();
+        if (mode == "--sprite-tests") return runSpriteRenderingTests();
+        if (mode == "--simulation-tests") return runSimulationTests();
+        if (mode == "--effects-tests") return runEffectsTests();
+        if (mode == "--wall-texture-tests") return runWallTextureTests();
+        try {
+            Renderer renderer(320, 240, "Failure test");
+        } catch (const InitializationException& error) {
+            const std::string message = error.what();
+            const std::string expected = mode == "--video-failure" ? "SDL video:" : "Renderer:";
+            std::cout << message << std::endl;
+            return message.find(expected) != std::string::npos &&
+                SDL_WasInit(SDL_INIT_VIDEO) == 0 ? 0 : 1;
+        }
+        std::cerr << "Expected initialization failure was not reported" << std::endl;
+        return 1;
+    }
     //*****OUTPUT FOR UNDERSTANDING*****
     std::cout<<"RUNNING TEST....."<<std::endl;
     std::cout<<"***********************"<<std::endl;
@@ -480,6 +581,10 @@ int main() {
     //********TESTS FOR RENDER*****
     RUN_TEST(testRendererInit);
     RUN_TEST(testRendererZBuffer);
+    RUN_TEST(testRendererInvalidSize);
+    RUN_TEST(testTextureLoadErrors);
+    RUN_TEST(testTextureReplacement);
+    RUN_TEST(testRendererIndependentLifetime);
 
 
     //********TESTS FOR GAME*****

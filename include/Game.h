@@ -41,6 +41,9 @@ private:
 
     Menu menu;
     GameState state;
+    double simulationAccumulator = 0.0;
+    static constexpr double SIMULATION_STEP = 1.0 / 120.0;
+    void simulate(float deltaTime);
 
     //****TIMERS FOR RESPAWN AND SPAWN OF ENEMIES***
     float enemySpawnTimer;        // timer fornext spawn
@@ -63,6 +66,10 @@ public:
     void spawnEnemies();
     void spawnAdditionalEnemy();  // spawn of new enemy
     void checkRespawns();         // check and make of respawn
+    const Player& getPlayer() const { return *player; } // Valid after init().
+    const Map& getMap() const { return *map; }
+    size_t getEnemyCount() const { return enemies.size(); }
+    const Enemy& getEnemy(size_t index) const { return *enemies.at(index); }
 
     //*****MUSIC CONTROLING******
     void initMusic();

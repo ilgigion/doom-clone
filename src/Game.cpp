@@ -28,6 +28,9 @@ void Game::init() {
         isRunning = true;
         state = GameState::Menu;
         menu.reset();
+        simulationAccumulator = 0.0;
+        enemySpawnTimer = 0.0f;
+        enemyRespawnCheckTimer = 0.0f;
 
         renderer.loadWallTexture(1, "assets/textures/wall0.bmp");
         renderer.loadFloorTexture("assets/textures/floor0.bmp");
@@ -102,50 +105,54 @@ void Game::update(float deltaTime) {
         }
     }
 
-    if (state == GameState::Playing && player != nullptr && map != nullptr) {
+    if (!isRunning) return;
+    if (state != GameState::Playing) {
+        simulationAccumulator = 0.0;
+        return;
+    }
+    if (player != nullptr && map != nullptr && std::isfinite(deltaTime) && deltaTime > 0) {
         player->handleInput(SDL_GetKeyboardState(NULL));
-        player->update(deltaTime, *map);
-
-        if (player && map) {
-            player->handleInput(SDL_GetKeyboardState(NULL));
-            // Shoot on SPACE
-            if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_SPACE]) {
-                player->shoot(enemies, *map);
-            }
-            player->update(0.016f, *map);
-            //update players projectiles
-            player->updateProjectiles(0.016f, *map, enemies);
+        simulationAccumulator += std::min(deltaTime, 0.1f);
+        while (simulationAccumulator + 1e-9 >= SIMULATION_STEP && isRunning) {
+            simulate(static_cast<float>(SIMULATION_STEP));
+            simulationAccumulator -= SIMULATION_STEP;
         }
+    }
+}
 
-        //timer for spawning additional enemies
-        enemySpawnTimer += 0.016f;
-        if (enemySpawnTimer >= SPAWN_INTERVAL) {
-            enemySpawnTimer = 0.0f;
-            spawnAdditionalEnemy();
-        }
+void Game::simulate(float deltaTime) {
+    player->update(deltaTime, *map);
+    if (SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_SPACE]) player->shoot(enemies, *map);
+    player->updateProjectiles(deltaTime, *map, enemies);
 
-        //timer for checking respawns
-        enemyRespawnCheckTimer += 0.016f;
-        if (enemyRespawnCheckTimer >= RESPAWN_CHECK_INTERVAL) {
-            enemyRespawnCheckTimer = 0.0f;
-            checkRespawns();
-        }
+    //timer for spawning additional enemies
+    enemySpawnTimer += deltaTime;
+    if (enemySpawnTimer >= SPAWN_INTERVAL) {
+        enemySpawnTimer -= SPAWN_INTERVAL;
+        spawnAdditionalEnemy();
+    }
 
-        //update enemies
-        for (auto& enemy : enemies) {
-            if (enemy && enemy->isAlive()) {
-                enemy->update(*player, *map, 0.016f);
-            } else if (enemy) {
-                //dead enemies update respawn timer
-                enemy->updateDeathTimer(0.016f);
-            }
-        }
+    //timer for checking respawns
+    enemyRespawnCheckTimer += deltaTime;
+    if (enemyRespawnCheckTimer >= RESPAWN_CHECK_INTERVAL) {
+        enemyRespawnCheckTimer -= RESPAWN_CHECK_INTERVAL;
+        checkRespawns();
+    }
 
-        //check if player is dead
-        if (player && !player->isAlive()) {
-            std::cout << "GAME OVER\n";
-            isRunning = false;
+    //update enemies
+    for (auto& enemy : enemies) {
+        if (enemy && enemy->isAlive()) {
+            enemy->update(*player, *map, deltaTime);
+        } else if (enemy) {
+            //dead enemies update respawn timer
+            enemy->updateDeathTimer(deltaTime);
         }
+    }
+
+    //check if player is dead
+    if (player && !player->isAlive()) {
+        std::cout << "GAME OVER\n";
+        isRunning = false;
     }
 }
 
@@ -170,8 +177,10 @@ void Game::render(float deltaTime) {
 
         std::sort(sortedEnemies.begin(), sortedEnemies.end(),
             [this](Enemy* a, Enemy* b) {
-                float distA = std::hypot(a->getX() - player->getX(), a->getY() - player->getY());
-                float distB = std::hypot(b->getX() - player->getX(), b->getY() - player->getY());
+                float distA = (a->getX() - player->getX()) * std::cos(player->getDir()) +
+                              (a->getY() - player->getY()) * std::sin(player->getDir());
+                float distB = (b->getX() - player->getX()) * std::cos(player->getDir()) +
+                              (b->getY() - player->getY()) * std::sin(player->getDir());
                 return distA > distB;
             });
 
@@ -179,8 +188,6 @@ void Game::render(float deltaTime) {
         for (auto* enemy : sortedEnemies) {
             if (enemy->isAlive()) {
                 renderer.drawEnemySprite(*enemy, *player);
-                renderer.drawEnemyHPBar(enemy->getX(), enemy->getY(),
-                                    enemy->getHP(), Enemy::MAX_HP, *player, {255, 50, 50, 255});
             } else {
                 // dead enemies
                 if (enemy->getDeathTimer() > 0.0f) {
@@ -189,6 +196,10 @@ void Game::render(float deltaTime) {
             }
         }
 
+        for (auto* enemy : sortedEnemies) {
+            if (enemy->isAlive()) renderer.drawEnemyHPBar(enemy->getX(), enemy->getY(),
+                enemy->getHP(), Enemy::MAX_HP, *player, {255, 50, 50, 255});
+        }
         renderer.renderGun(*player);
         if (player->getDamageTimer() > 0.0f) {
             // alpha: from 0.2 to 0.0 as it fades
@@ -205,10 +216,10 @@ void Game::spawnEnemies()
 {
     enemies.clear();
 
-    enemies.push_back(std::make_unique<Enemy>(10.0f, 7.0f, EnemyType::Melee));
-    enemies.push_back(std::make_unique<Enemy>(5.0f, 5.0f, EnemyType::Melee));
-    enemies.push_back(std::make_unique<Enemy>(8.0f, 3.0f, EnemyType::Melee));
-    enemies.push_back(std::make_unique<Enemy>(13.0f, 10.0f, EnemyType::Ranged));
+    enemies.push_back(std::make_unique<Enemy>(9.5f, 7.5f, EnemyType::Melee));
+    enemies.push_back(std::make_unique<Enemy>(5.5f, 5.5f, EnemyType::Melee));
+    enemies.push_back(std::make_unique<Enemy>(8.5f, 3.5f, EnemyType::Melee));
+    enemies.push_back(std::make_unique<Enemy>(13.5f, 11.5f, EnemyType::Ranged));
 
 }
 
@@ -226,7 +237,8 @@ void Game::spawnAdditionalEnemy() {
         spawnX = 2.0f + static_cast<float>(rand()) / RAND_MAX * (map->getWidth() - 4.0f);
         spawnY = 2.0f + static_cast<float>(rand()) / RAND_MAX * (map->getHeight() - 4.0f);
         attempts++;
-    } while (map->isWall(static_cast<int>(spawnX), static_cast<int>(spawnY)) && attempts < 10);
+    } while (!map->canOccupy(spawnX, spawnY, 0.2f) && attempts < 10);
+    if (!map->canOccupy(spawnX, spawnY, 0.2f)) return;
 
     //random type of enemy
     EnemyType type = (rand() % 2 == 0) ? EnemyType::Melee : EnemyType::Ranged;

@@ -1,5 +1,7 @@
 #include "Menu.h"
 #include <iostream>
+#include "SDLWrappers.h"
+#include <utility>
 
 Menu::Menu()
     : backgroundTexture(nullptr),
@@ -37,10 +39,12 @@ bool Menu::loadTextures(SDL_Renderer* renderer)
         return texture;
     };
 
-    backgroundTexture = loadOne("assets/textures/menu_background.bmp");
-    startTexture = loadOne("assets/textures/button_start.bmp");
-
-    return backgroundTexture && startTexture;
+    SDLTexturePtr newBackground(loadOne("assets/textures/menu_background.bmp"));
+    SDLTexturePtr newStart(loadOne("assets/textures/button_start.bmp"));
+    if (!newBackground || !newStart) return false;
+    SDLTexturePtr oldBackground(std::exchange(backgroundTexture, newBackground.release()));
+    SDLTexturePtr oldStart(std::exchange(startTexture, newStart.release()));
+    return true;
 }
 
 void Menu::handleEvent(const SDL_Event& e)

@@ -8,6 +8,8 @@
 #include <string>
 #include <unordered_map>
 #include <optional>
+#include <random>
+#include "FrameProjection.h"
 
 struct TextureInfo {
     SDL_Texture* texture;
@@ -25,14 +27,18 @@ private:
     int width;
     int height;
 
-    std::map<int, SDL_Texture*> wallTextures;
+    std::map<int, TextureInfo> wallTextures;
     SDL_Texture* floorTexture;
+    std::vector<Uint32> floorPixels;
+    int floorWidth = 0;
+    int floorHeight = 0;
+    std::vector<std::optional<FloorRay>> floorRays;
+    std::minstd_rand effectRandom{1};
+    void renderFloor(const Player& player, const Map& map, const FrameProjection& projection);
     SDL_Texture* ceilingTexture;
     SDL_Texture* gunTexture;
     std::unordered_map<EnemyType, TextureInfo> enemyTextures;
 
-    int textureWidth;
-    int textureHeight;
 
     // bobbing parametrs
     float bobPhase;
@@ -49,9 +55,18 @@ private:
     SDL_Texture* deadEnemyTexture;//dead enemy sprite
     void drawDigit(int x, int y, int digit, int colorR, int colorG, int colorB);
     void drawNumber(int x, int y, int number, int colorR, int colorG, int colorB);
+    struct SpriteProjection {
+        SDL_Rect rect;
+        float depth;
+    };
+    std::optional<SpriteProjection> projectSprite(float worldX, float worldY, const Player& player,
+                                                  float worldHeight, float aspect, float maxDistance) const;
+    void drawSpriteColumns(SDL_Texture* texture, int texWidth, int texHeight, const SpriteProjection& sprite);
 public:
     Renderer(int w, int h, const char* title);
     ~Renderer();
+    Renderer(const Renderer&) = delete;
+    Renderer& operator=(const Renderer&) = delete;
 
     void clear();
     void present();

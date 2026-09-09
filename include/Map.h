@@ -16,6 +16,7 @@ public:
     
     int getTile(int x, int y) const;
     bool isWall(int x, int y) const;
+    bool canOccupy(float x, float y, float radius) const;
     int getWidth() const;
     int getHeight() const;
     int getTileSize() const;

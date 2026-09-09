@@ -18,6 +18,8 @@ private:
 public:
     Menu();
     ~Menu();
+    Menu(const Menu&) = delete;
+    Menu& operator=(const Menu&) = delete;
 
     bool loadTextures(SDL_Renderer* renderer);
     void handleEvent(const SDL_Event& e);
